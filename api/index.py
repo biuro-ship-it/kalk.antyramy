@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import os
 import math
+import json
 
 app = FastAPI()
 
@@ -51,11 +52,19 @@ def fetch_data():
     global CACHED_DATA, GLOBAL_SETTINGS, LAST_ERROR
     try:
         LAST_ERROR = None
-        if not os.path.exists(creds_path):
-            LAST_ERROR = "Błąd: Brak pliku credentials.json."
-            return
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        
+        # Pobieranie klucza z bezpiecznego sejfu Vercel lub z pliku lokalnego
+        google_creds_env = os.environ.get("GOOGLE_CREDENTIALS")
+        if google_creds_env:
+            creds_dict = json.loads(google_creds_env)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        elif os.path.exists(creds_path):
+            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        else:
+            LAST_ERROR = "Błąd: Brak bezpiecznego klucza Google (Vercel Environment Variables)."
+            return
+        
         client = gspread.authorize(creds)
         sheet = client.open("Baza Ramek").sheet1
         data = sheet.get_all_values()
