@@ -9,19 +9,50 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
         
-        /* --- STYLIZACJA WYDRUKU (MINIMALISTYCZNA) --- */
+        /* --- OPTYMALIZACJA WYDRUKU (90% SKALI) --- */
         @media print {
-            @page { size: A4; margin: 1.5cm; }
-            body { background: white !important; color: black !important; }
+            @page { size: A4; margin: 0.8cm; } /* Zmniejszony margines strony */
+            
+            body { 
+                background: white !important; 
+                color: black !important; 
+                zoom: 90%; /* Globalne zmniejszenie o 10% */
+                -webkit-print-color-adjust: exact;
+            }
+
             .no-print { display: none !important; }
-            .print-card { border: 1px solid #eee !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; border-radius: 0 !important; }
-            .print-header { background: #f8fafc !important; color: black !important; border-bottom: 2px solid black !important; padding: 20px !important; }
-            .print-header h2 { color: black !important; font-size: 24pt !important; }
+            
+            .print-card { 
+                border: 1px solid #000 !important; 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                width: 100% !important; 
+                border-radius: 0 !important; 
+            }
+
+            .print-header { 
+                background: #111827 !important; /* Ciemne tło nagłówka */
+                color: white !important; 
+                padding: 15px !important; 
+            }
+
+            .print-header h2 { font-size: 20pt !important; }
+
+            /* Ciasna tabela do druku */
             table { width: 100% !important; border-collapse: collapse !important; }
-            th { border-bottom: 1px solid black !important; text-transform: uppercase !important; font-size: 9pt !important; padding: 10px 5px !important; }
-            td { border-bottom: 1px solid #eee !important; padding: 10px 5px !important; font-size: 11pt !important; }
-            .bg-blue-600 { background: transparent !important; color: black !important; border-left: 1px solid #ccc !important; }
-            .text-green-600 { color: #059669 !important; } /* Zysk zostawiamy lekko zielony dla czytelności admina */
+            th { 
+                border-bottom: 2px solid black !important; 
+                font-size: 8pt !important; 
+                padding: 6px 4px !important; 
+            }
+            td { 
+                border-bottom: 1px solid #ddd !important; 
+                padding: 5px 4px !important; /* Bardzo ciasne wiersze */
+                font-size: 10pt !important; 
+            }
+
+            .text-green-600 { color: #059669 !important; font-weight: bold !important; }
+            .text-blue-700 { color: #1d4ed8 !important; font-weight: 800 !important; }
         }
 
         .option-tile { transition: all 0.2s; cursor: pointer; border: 2px solid #e2e8f0; }
@@ -78,8 +109,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-8 border-t border-slate-100">
                     <div class="md:col-span-4" id="profileContainer">
                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">3. Kod / Kolor</label>
-                        <select name="profile_name" id="profileSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black uppercase outline-none focus:border-blue-500 text-sm">
-                        </select>
+                        <select name="profile_name" id="profileSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black uppercase outline-none focus:border-blue-500 text-sm"></select>
                     </div>
                     <div class="md:col-span-3">
                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">4. Cennik & PP</label>
@@ -107,54 +137,54 @@
 
         {% if results %}
         <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden print-card">
-            <div class="p-8 bg-slate-900 text-white flex justify-between items-center print-header">
+            <div class="p-6 bg-slate-900 text-white flex justify-between items-center print-header">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-1">Dokument wyceny / Karta produkcyjna</p>
-                    <h2 class="text-3xl font-black uppercase tracking-tight">{{ profile }}</h2>
+                    <p class="text-[9px] font-black uppercase tracking-[0.3em] opacity-60 mb-1">Dokument wyceny / Karta produkcyjna</p>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">{{ profile }}</h2>
                 </div>
                 <div class="text-right no-print">
-                    <button onclick="window.print()" class="bg-white text-slate-900 px-6 py-3 rounded-xl font-black text-xs uppercase hover:bg-blue-50 transition-all flex items-center gap-2">
-                        🖨️ Drukuj ofertę
+                    <button onclick="window.print()" class="bg-white text-slate-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-blue-50 transition-all flex items-center gap-2">
+                        🖨️ Drukuj
                     </button>
                 </div>
             </div>
 
             <table class="w-full">
                 <thead>
-                    <tr class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
-                        <th class="p-6 text-left">Format Ramy</th>
+                    <tr class="bg-slate-50 text-[9px] font-black text-slate-400 uppercase border-b">
+                        <th class="p-4 text-left">Format</th>
                         {% if is_admin %}
-                        <th class="p-6 text-right">Surowiec</th>
-                        <th class="p-6 text-center">Marża %</th>
-                        <th class="p-6 text-right text-green-600">Zysk (Netto)</th>
+                        <th class="p-4 text-right">Surowiec</th>
+                        <th class="p-4 text-center">Marża %</th>
+                        <th class="p-4 text-right text-green-600">Zysk</th>
                         {% endif %}
-                        <th class="p-6 text-right">Cena Netto</th>
-                        <th class="p-6 text-right bg-blue-50 text-blue-700">Cena Brutto</th>
+                        <th class="p-4 text-right">Netto</th>
+                        <th class="p-4 text-right bg-blue-50 text-blue-700">Brutto</th>
                     </tr>
                 </thead>
                 <tbody class="font-black">
                     {% for r in results %}
                     <tr class="border-b border-slate-50 hover:bg-slate-50/50">
-                        <td class="p-6 text-slate-900">{{ r.size }} cm</td>
+                        <td class="p-4 text-slate-900 text-sm">{{ r.size }} cm</td>
                         {% if is_admin %}
-                        <td class="p-6 text-right text-slate-500 text-xs">{{ r.surowiec }} zł</td>
-                        <td class="p-6 text-center">
-                            <input type="number" step="0.1" value="{{ r.active_margin }}" data-size="{{ r.size }}" data-cost="{{ r.total_cost }}" data-vat="{{ vat }}" class="dynamic-margin no-print w-14 text-center bg-slate-100 rounded-md py-1 text-blue-600 outline-none">
-                            <span class="hidden print:inline">{{ r.active_margin }}%</span>
+                        <td class="p-4 text-right text-slate-500 text-[10px]">{{ r.surowiec }} zł</td>
+                        <td class="p-4 text-center">
+                            <input type="number" step="0.1" value="{{ r.active_margin }}" data-size="{{ r.size }}" data-cost="{{ r.total_cost }}" data-vat="{{ vat }}" class="dynamic-margin no-print w-12 text-center bg-slate-100 rounded py-0.5 text-blue-600 text-xs outline-none">
+                            <span class="hidden print:inline text-xs">{{ r.active_margin }}%</span>
                         </td>
-                        <td class="p-6 text-right text-green-600"><span class="profit-price">{{ r.profit }}</span> zł</td>
+                        <td class="p-4 text-right text-green-600 text-sm"><span class="profit-price">{{ r.profit }}</span> zł</td>
                         {% endif %}
-                        <td class="p-6 text-right text-slate-600"><span class="net-price">{{ r.net }}</span> zł</td>
-                        <td class="p-6 text-right text-lg text-blue-700"><span class="gross-price">{{ r.gross }}</span> zł</td>
+                        <td class="p-4 text-right text-slate-600 text-sm"><span class="net-price">{{ r.net }}</span> zł</td>
+                        <td class="p-4 text-right text-base text-blue-700"><span class="gross-price">{{ r.gross }}</span> zł</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
-            <div class="p-6 bg-slate-50 border-t flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Wygenerowano: Antyramy.eu</span>
+            <div class="p-4 bg-slate-50 border-t flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                <span>Antyramy.eu</span>
                 {% if is_admin %}
-                <button onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all">💾 Zapisz marże w bazie</button>
+                <button onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px] hover:bg-green-600 transition-all">💾 Zapisz marże</button>
                 {% endif %}
                 <span>VAT {{ vat }}%</span>
             </div>
@@ -210,7 +240,7 @@
 
         async function saveMarginsToDB() {
             const btn = document.getElementById('saveBtn');
-            btn.innerText = '⏳ ZAPISYWANIE...';
+            btn.innerText = '⏳...';
             const updates = Array.from(document.querySelectorAll('.dynamic-margin')).map(input => ({
                 mode: API_MODE, profile: API_PROFILE, size: input.getAttribute('data-size'), margin: parseFloat(input.value) || 0
             }));
@@ -221,7 +251,7 @@
                     body: JSON.stringify({ password: API_PASSWORD, updates: updates })
                 });
                 const data = await res.json();
-                if (data.success) { btn.innerText = '✅ ZAPISANO!'; setTimeout(() => { btn.innerText = '💾 Zapisz marże w bazie'; }, 2000); }
+                if (data.success) { btn.innerText = '✅ OK'; setTimeout(() => { btn.innerText = '💾 Zapisz marże'; }, 2000); }
             } catch (err) { alert('Błąd sieci'); }
         }
         {% endif %}
