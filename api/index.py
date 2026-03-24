@@ -202,7 +202,6 @@ async def calculate(
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
         
-        # LOGIKA ROBOCIZNY: Brak robocizny dla antyram
         if is_szklo_anty or is_pleksa_anty:
             c_robocizna = 0
         else:
@@ -213,13 +212,15 @@ async def calculate(
         divisor = (1 - (margin / 100))
         net = total_cost / divisor
         gross = net * (1 + (vat / 100))
+        profit = net - total_cost # OBLICZANIE ZYSKU
         
         results.append({
             "size": name, 
             "net": f"{net:.2f}", 
             "gross": f"{gross:.2f}",
             "surowiec": f"{c_surowiec:.2f}",
-            "total_cost": f"{total_cost:.2f}"
+            "total_cost": f"{total_cost:.2f}",
+            "profit": f"{profit:.2f}"
         })
 
     return templates.TemplateResponse(request=request, name="index.html", context={

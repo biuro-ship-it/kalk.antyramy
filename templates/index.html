@@ -158,6 +158,7 @@
                             {% if is_admin %}
                             <th class="p-6 text-right">Koszt Surowcowy</th>
                             <th class="p-6 text-center">Marża Indywidualna</th>
+                            <th class="p-6 text-right text-green-600">Czysty Zysk</th>
                             {% endif %}
                             <th class="p-6 text-right">Cena Netto</th>
                             <th class="p-6 text-right bg-blue-600 text-white">Cena Brutto</th>
@@ -180,6 +181,9 @@
                                            class="dynamic-margin w-16 text-center font-black text-blue-600 outline-none bg-transparent">
                                     <span class="text-slate-400 font-black text-xs ml-1">%</span>
                                 </div>
+                            </td>
+                            <td class="p-6 text-right text-green-600 font-black text-lg">
+                                <span class="profit-price">{{ r.profit }}</span> zł
                             </td>
                             {% endif %}
                             
@@ -238,10 +242,17 @@
                     const divisor = 1 - (customMargin / 100);
                     const newNet = baseCost / divisor;
                     const newGross = newNet * (1 + (vatRate / 100));
+                    const newProfit = newNet - baseCost; // OBLICZANIE ZYSKU W JS
                     
                     const row = this.closest('tr');
                     row.querySelector('.net-price').innerText = newNet.toFixed(2);
                     row.querySelector('.gross-price').innerText = newGross.toFixed(2);
+                    
+                    // AKTUALIZACJA ZIELONEGO POLA ZYSKU
+                    const profitEl = row.querySelector('.profit-price');
+                    if (profitEl) {
+                        profitEl.innerText = newProfit.toFixed(2);
+                    }
                 });
             });
         });
