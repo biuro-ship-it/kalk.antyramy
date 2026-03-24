@@ -65,24 +65,17 @@ def fetch_data():
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
         
-        # BAZA GŁÓWNA
         data = wb.sheet1.get_all_values()
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
         
-        # NOWOŚĆ: BAZA WYJĄTKÓW (Zapisane marże)
-        try:
-            ws_wyjatki = wb.worksheet("Wyjatki_Marze")
+        try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
         except gspread.exceptions.WorksheetNotFound:
             ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=4)
             ws_wyjatki.append_row(["Tryb", "Produkt", "Format", "Marza"])
             
         wyjatki_data = ws_wyjatki.get_all_values()
-        temp_wyjatki = {}
-        if wyjatki_data and len(wyjatki_data) > 1:
-            for r in wyjatki_data[1:]:
-                if len(r) >= 4:
-                    temp_wyjatki[f"{r[0]}_{r[1]}_{r[2]}"] = clean_val(r[3])
+        temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": clean_val(r[3]) for r in wyjatki_data[1:] if len(r) >= 4} if wyjatki_data and len(wyjatki_data) > 1 else {}
 
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
@@ -93,7 +86,8 @@ def fetch_data():
         LAST_ERROR = f"Błąd Google: {str(e)}"
 
 def get_profiles_list():
-    return [{"nazwa": item.get('nazwa'), "img": item.get('link_zdjecie', '')} for item in CACHED_DATA if item.get('nazwa')]
+    # Pobieramy też nową kolumnę 'kategoria' do filtrowania w JS
+    return [{"nazwa": item.get('nazwa'), "img": item.get('link_zdjecie', ''), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')]
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -109,39 +103,42 @@ async def refresh():
 
 @app.post("/calculate", response_class=HTMLResponse)
 async def calculate(
-    request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("retail"), 
-    password: Optional[str] = Form(None), product_type: str = Form("normal"),
-    with_pp: Optional[str] = Form(None), use_pleksa: Optional[str] = Form(None)
+    request: Request, 
+    profile_name: Optional[str] = Form(None), 
+    mode: str = Form("retail"), 
+    password: Optional[str] = Form(None), 
+    main_category: str = Form("drewno"),  # NOWE: drewno, plastik, alu, antyrama
+    front_type: str = Form("szklo"),      # NOWE: szklo, pleksa
+    with_pp: Optional[str] = Form(None)
 ):
     if not CACHED_DATA: fetch_data()
     is_admin = (password == ADMIN_PASSWORD)
     
-    is_szklo_anty = (product_type == "antyrama")
-    is_pleksa_anty = (product_type == "pleksa")
-    is_alu = (product_type == "alu")
+    is_antyrama = (main_category == "antyrama")
+    is_alu = (main_category == "alu")
+    is_pleksa = (front_type == "pleksa")
     
-    if not profile_name and not (is_szklo_anty or is_pleksa_anty):
-        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list()})
+    if not profile_name and not is_antyrama:
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type})
 
-    profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0", "link_zdjecie": ""} if (is_szklo_anty or is_pleksa_anty) else PROFILES_MAP.get(profile_name)
-    if not profile: return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Brak profilu.", "profiles": get_profiles_list()})
+    profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0", "link_zdjecie": ""} if is_antyrama else PROFILES_MAP.get(profile_name)
+    if not profile: return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Brak profilu w bazie.", "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type})
 
     def get_smart_val(key):
-        val_str = profile.get(key, "").strip() if (not is_szklo_anty and not is_pleksa_anty) else ""
+        val_str = profile.get(key, "").strip() if not is_antyrama else ""
         return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
 
     s_width = clean_val(profile.get('szerokosc_listwy', 0))
     s_price = clean_val(profile.get('cena_zakupu_mb', 0))
     img_url = profile.get('link_zdjecie', '') 
     
-    if is_pleksa_anty or use_pleksa: front_p, front_label = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)), "PLEKSA"
+    if is_pleksa: front_p, front_label = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)), "PLEKSA"
     else: front_p, front_label = get_smart_val('cena_szkla_m2'), "SZKŁO"
 
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
 
-    if is_szklo_anty: m_key = 'marza_anty_hurt' if mode == "wholesale" else 'marza_anty_detal'
-    elif is_pleksa_anty: m_key = 'marza_pleksa_hurt' if mode == "wholesale" else 'marza_pleksa_detal'
+    if is_antyrama: m_key = 'marza_anty_hurt' if mode == "wholesale" else 'marza_anty_detal'
     elif is_alu: m_key = 'marza_alu_hurt' if mode == "wholesale" else 'marza_alu_detal'
     else: m_key = 'marza_hurt' if mode == "wholesale" else 'marza'
         
@@ -153,19 +150,17 @@ async def calculate(
         len_m, area_m2 = (2*(w+h) + FRAME_MARGIN*s_width)/100, (w*h)/10000
         c_surowiec = (area_m2 * front_p) + (area_m2 * back_p)
         
-        if is_szklo_anty or is_pleksa_anty: c_surowiec += (s_count * clip_p) + (z_count * hook_p); label = f"ANTYRAMA {front_label}"
+        if is_antyrama: c_surowiec += (s_count * clip_p) + (z_count * hook_p); label = f"ANTYRAMA {front_label}"
         elif is_alu: c_surowiec += (len_m * s_price) + alu_kit_p; label = f"ALU: {profile['nazwa']} ({front_label})"
-        else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0); label = f"RAMA DREWNO: {profile['nazwa']} ({front_label})"
+        else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0); label = f"RAMA {main_category.upper()}: {profile['nazwa']} ({front_label})"
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
-        c_robocizna = 0 if (is_szklo_anty or is_pleksa_anty) else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
+        c_robocizna = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
         total_cost = c_surowiec + c_robocizna
         
-        # POBIERANIE MARŻY INDYWIDUALNEJ (Z GOOGLE SHEETS)
         exception_key = f"{mode}_{label}_{name}"
         active_margin = MARGIN_EXCEPTIONS.get(exception_key)
         if active_margin is None: active_margin = base_margin
-            
         if active_margin >= 100: active_margin = 99.9
         
         divisor = (1 - (active_margin / 100))
@@ -179,8 +174,8 @@ async def calculate(
 
     return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, "results": results, "profile": label, "margin": base_margin, "mode": mode,
-        "is_admin": is_admin, "profiles": get_profiles_list(), "product_type": product_type, 
-        "with_pp": with_pp, "use_pleksa": use_pleksa, "selected_profile": profile_name, "img_url": img_url,
+        "is_admin": is_admin, "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type, 
+        "with_pp": with_pp, "selected_profile": profile_name, "img_url": img_url,
         "vat": vat, "admin_password": password if is_admin else None
     })
 
@@ -211,7 +206,7 @@ async def save_margins(request: Request):
         try: ws.update('A1', new_data)
         except: ws.update(values=new_data, range_name='A1')
 
-        fetch_data() # Zaktualizuj pamięć serwera Vercel
+        fetch_data() 
         return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)})
