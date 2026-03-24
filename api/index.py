@@ -83,7 +83,7 @@ def get_profiles_list():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, "profiles": get_profiles_list(), "is_loaded": (len(CACHED_DATA) > 0)
     })
 
@@ -116,7 +116,7 @@ async def calculate(
         profile = next((item for item in CACHED_DATA if item.get("nazwa") == profile_name), None)
 
     if not profile:
-        return templates.TemplateResponse("index.html", {"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list()})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list()})
 
     def get_smart_val(key):
         val_str = profile.get(key, "").strip() if (not is_szklo_anty and not is_pleksa_anty) else ""
@@ -181,7 +181,7 @@ async def calculate(
             res_row.update({"surowiec": f"{c_surowiec:.2f}", "mr": f"{net:.2f}", "rb": f"{(c_surowiec+c_robocizna):.2f}", "zmr": f"{(net-c_surowiec):.2f}"})
         results.append(res_row)
 
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, "results": results, "profile": label, "margin": margin, "mode": mode,
         "is_admin": is_admin, "profiles": get_profiles_list(), "product_type": product_type, 
         "with_pp": with_pp, "use_pleksa": use_pleksa, "selected_profile": profile_name, "img_url": img_url
