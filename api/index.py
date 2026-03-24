@@ -21,7 +21,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content=f"""
         <div style='padding: 20px; font-family: monospace; color: #b91c1c; background: #fef2f2; min-height: 100vh;'>
             <h2 style='font-size: 24px; font-weight: bold; margin-bottom: 10px;'>Wewnętrzny Błąd Serwera (500)</h2>
-            <p style='margin-bottom: 20px;'>Skopiuj poniższy tekst i wyślij go na czacie:</p>
+            <p style='margin-bottom: 20px;'>Skopiuj poniższy tekst i wyślij go swojemu programiście na czacie:</p>
             <pre style='background: #fff; padding: 15px; border: 1px solid #fca5a5; overflow-x: auto; font-size: 14px;'>{error_details}</pre>
         </div>
         """,
@@ -209,13 +209,18 @@ async def calculate(
         net = total_cost / divisor
         gross = net * (1 + (vat / 100))
         
-        res_row = {"size": name, "net": f"{net:.2f}", "gross": f"{gross:.2f}"}
-        if is_admin:
-            res_row.update({"surowiec": f"{c_surowiec:.2f}", "mr": f"{net:.2f}", "rb": f"{total_cost:.2f}", "zmr": f"{(net-total_cost):.2f}"})
-        results.append(res_row)
+        # Nowa struktura przesyłana do szablonu HTML (potrzebna do JS)
+        results.append({
+            "size": name, 
+            "net": f"{net:.2f}", 
+            "gross": f"{gross:.2f}",
+            "surowiec": f"{c_surowiec:.2f}",
+            "total_cost": f"{total_cost:.2f}"
+        })
 
     return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, "results": results, "profile": label, "margin": margin, "mode": mode,
         "is_admin": is_admin, "profiles": get_profiles_list(), "product_type": product_type, 
-        "with_pp": with_pp, "use_pleksa": use_pleksa, "selected_profile": profile_name, "img_url": img_url
+        "with_pp": with_pp, "use_pleksa": use_pleksa, "selected_profile": profile_name, "img_url": img_url,
+        "vat": vat
     })
