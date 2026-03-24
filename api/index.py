@@ -7,13 +7,28 @@ import os
 import math
 import json
 import re
+import traceback
 from typing import Optional
 from threading import Lock
 
 app = FastAPI()
 
+# --- ZAAWANSOWANY WYKRYWACZ BŁĘDÓW ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_details = traceback.format_exc()
+    return HTMLResponse(
+        content=f"""
+        <div style='padding: 20px; font-family: monospace; color: #b91c1c; background: #fef2f2; min-height: 100vh;'>
+            <h2 style='font-size: 24px; font-weight: bold; margin-bottom: 10px;'>Wewnętrzny Błąd Serwera (500)</h2>
+            <p style='margin-bottom: 20px;'>Skopiuj poniższy tekst i wyślij go na czacie:</p>
+            <pre style='background: #fff; padding: 15px; border: 1px solid #fca5a5; overflow-x: auto; font-size: 14px;'>{error_details}</pre>
+        </div>
+        """,
+        status_code=500
+    )
+
 # --- ZABEZPIECZENIE ---
-# Hasło czytane z bezpiecznego sejfu Vercel (z opcją zapasową dla dev)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "qwerty11") 
 
 # --- KONFIGURACJA ŚCIEŻEK ---
@@ -22,17 +37,14 @@ creds_path = os.path.join(BASE_DIR, 'credentials.json')
 templates_path = os.path.join(BASE_DIR, "..", "templates")
 templates = Jinja2Templates(directory=templates_path)
 
-# --- STAN GLOBALNY (zabezpieczony) ---
+# --- STAN GLOBALNY ---
 data_lock = Lock()
 CACHED_DATA = []
 PROFILES_MAP = {}
 GLOBAL_SETTINGS = {}
 LAST_ERROR = None
-
-# Zmienne magiczne
 FRAME_MARGIN = 8
 
-# Konfiguracja formatów: (szer, wys, kat_podporki, kat_produkcji, s_spinki, z_zaczepy)
 FORMATS_CONFIG = {
     "10x15": (10, 15, "mala", "mala", 4, 0),
     "13x18": (13, 18, "mala", "mala", 4, 0),
@@ -64,7 +76,6 @@ def fetch_data():
         LAST_ERROR = None
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         
-        # Pobieranie klucza z bezpiecznego sejfu Vercel lub z pliku lokalnego
         google_creds_env = os.environ.get("GOOGLE_CREDENTIALS")
         if google_creds_env:
             creds_dict = json.loads(google_creds_env)
@@ -82,24 +93,21 @@ def fetch_data():
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
         
-        # Zabezpieczenie przed wyścigiem wątków (thread safety)
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
             CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
-            # O(1) Lookup zamiast O(N)
             PROFILES_MAP = {p.get("nazwa"): p for p in CACHED_DATA if p.get("nazwa")}
     except Exception as e:
         LAST_ERROR = f"Błąd Google: {str(e)}"
 
 def get_profiles_list():
-    # Zwraca listę obiektów {nazwa, img} zamiast samych nazw dla podglądu JS
     return [{"nazwa": item.get('nazwa'), "img": item.get('link_zdjecie', '')} for item in CACHED_DATA if item.get('nazwa')]
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
     return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "profiles": get_profiles_list(), "is_loaded": (len(CACHED_DATA) > 0)
+        "request": request, "profiles": get_profiles_list(), "is_loaded": (len(CACHED_DATA) > 0), "error": LAST_ERROR
     })
 
 @app.post("/refresh")
@@ -125,14 +133,12 @@ async def calculate(
     is_alu = (product_type == "alu")
     is_normal = (product_type == "normal")
     
-    # Walidacja braku wybranego profilu
     if not profile_name and not (is_szklo_anty or is_pleksa_anty):
         return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Błąd: Wybierz kod profilu.", "profiles": get_profiles_list()})
 
     if is_szklo_anty or is_pleksa_anty:
         profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0", "link_zdjecie": ""}
     else:
-        # Szybkie pobranie O(1)
         profile = PROFILES_MAP.get(profile_name)
 
     if not profile:
@@ -146,7 +152,7 @@ async def calculate(
 
     s_width = clean_val(profile.get('szerokosc_listwy', 0))
     s_price = clean_val(profile.get('cena_zakupu_mb', 0))
-    img_url = profile.get('link_zdjecie', '') # POBIERAMY URL ZDJĘCIA
+    img_url = profile.get('link_zdjecie', '') 
     
     if is_pleksa_anty or use_pleksa:
         front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0))
@@ -162,7 +168,6 @@ async def calculate(
     alu_kit_p = clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0))
     vat = get_smart_val('vat') or 23
 
-    # MARŻA
     if is_szklo_anty: m_key = 'marza_anty_hurt' if mode == "wholesale" else 'marza_anty_detal'
     elif is_pleksa_anty: m_key = 'marza_pleksa_hurt' if mode == "wholesale" else 'marza_pleksa_detal'
     elif is_alu: m_key = 'marza_alu_hurt' if mode == "wholesale" else 'marza_alu_detal'
@@ -172,7 +177,6 @@ async def calculate(
     if margin == 0: margin = clean_val(profile.get(m_key, 0))
     if margin == 0: margin = get_smart_val('marza_hurt' if mode == "wholesale" else 'marza')
 
-    # Zabezpieczenie przed matematycznym błędem i crashem dzielenia przez zero
     if margin >= 100:
         return templates.TemplateResponse(request=request, name="index.html", context={
             "request": request, "error": "Błąd krytyczny: Marża nie może być równa lub większa niż 100%.", "profiles": get_profiles_list()
@@ -198,7 +202,6 @@ async def calculate(
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
         
-        # Prawidłowe wliczenie robocizny do ostatecznej ceny
         c_robocizna = get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0
         total_cost = c_surowiec + c_robocizna
         
