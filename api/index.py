@@ -6,11 +6,15 @@ from fastapi.templating import Jinja2Templates
 import os
 import math
 import json
+import re
+from typing import Optional
+from threading import Lock
 
 app = FastAPI()
 
 # --- ZABEZPIECZENIE ---
-ADMIN_PASSWORD = "qwerty11" 
+# Hasło czytane z bezpiecznego sejfu Vercel (z opcją zapasową dla dev)
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "qwerty11") 
 
 # --- KONFIGURACJA ŚCIEŻEK ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -18,9 +22,15 @@ creds_path = os.path.join(BASE_DIR, 'credentials.json')
 templates_path = os.path.join(BASE_DIR, "..", "templates")
 templates = Jinja2Templates(directory=templates_path)
 
+# --- STAN GLOBALNY (zabezpieczony) ---
+data_lock = Lock()
 CACHED_DATA = []
+PROFILES_MAP = {}
 GLOBAL_SETTINGS = {}
 LAST_ERROR = None
+
+# Zmienne magiczne
+FRAME_MARGIN = 8
 
 # Konfiguracja formatów: (szer, wys, kat_podporki, kat_produkcji, s_spinki, z_zaczepy)
 FORMATS_CONFIG = {
@@ -44,12 +54,12 @@ FORMATS_CONFIG = {
 def clean_val(val):
     if val is None or val == "": return 0.0
     s = str(val).replace(',', '.').strip()
-    s = "".join(c for c in s if c.isdigit() or c == '.')
-    try: return float(s) if s else 0.0
+    match = re.findall(r"\d+\.?\d*", s)
+    try: return float(match[0]) if match else 0.0
     except: return 0.0
 
 def fetch_data():
-    global CACHED_DATA, GLOBAL_SETTINGS, LAST_ERROR
+    global CACHED_DATA, GLOBAL_SETTINGS, PROFILES_MAP, LAST_ERROR
     try:
         LAST_ERROR = None
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -71,8 +81,13 @@ def fetch_data():
         if not data: return
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
-        GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
-        CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
+        
+        # Zabezpieczenie przed wyścigiem wątków (thread safety)
+        with data_lock:
+            GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
+            CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
+            # O(1) Lookup zamiast O(N)
+            PROFILES_MAP = {p.get("nazwa"): p for p in CACHED_DATA if p.get("nazwa")}
     except Exception as e:
         LAST_ERROR = f"Błąd Google: {str(e)}"
 
@@ -95,12 +110,12 @@ async def refresh():
 @app.post("/calculate", response_class=HTMLResponse)
 async def calculate(
     request: Request, 
-    profile_name: str = Form(None), 
+    profile_name: Optional[str] = Form(None), 
     mode: str = Form("retail"), 
-    password: str = Form(None),
+    password: Optional[str] = Form(None),
     product_type: str = Form("normal"),
-    with_pp: str = Form(None),
-    use_pleksa: str = Form(None)
+    with_pp: Optional[str] = Form(None),
+    use_pleksa: Optional[str] = Form(None)
 ):
     if not CACHED_DATA: fetch_data()
     is_admin = (password == ADMIN_PASSWORD)
@@ -110,13 +125,18 @@ async def calculate(
     is_alu = (product_type == "alu")
     is_normal = (product_type == "normal")
     
+    # Walidacja braku wybranego profilu
+    if not profile_name and not (is_szklo_anty or is_pleksa_anty):
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Błąd: Wybierz kod profilu.", "profiles": get_profiles_list()})
+
     if is_szklo_anty or is_pleksa_anty:
         profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0", "link_zdjecie": ""}
     else:
-        profile = next((item for item in CACHED_DATA if item.get("nazwa") == profile_name), None)
+        # Szybkie pobranie O(1)
+        profile = PROFILES_MAP.get(profile_name)
 
     if not profile:
-        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list()})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Błąd: Nie znaleziono profilu w bazie.", "profiles": get_profiles_list()})
 
     def get_smart_val(key):
         val_str = profile.get(key, "").strip() if (not is_szklo_anty and not is_pleksa_anty) else ""
@@ -152,10 +172,16 @@ async def calculate(
     if margin == 0: margin = clean_val(profile.get(m_key, 0))
     if margin == 0: margin = get_smart_val('marza_hurt' if mode == "wholesale" else 'marza')
 
+    # Zabezpieczenie przed matematycznym błędem i crashem dzielenia przez zero
+    if margin >= 100:
+        return templates.TemplateResponse(request=request, name="index.html", context={
+            "request": request, "error": "Błąd krytyczny: Marża nie może być równa lub większa niż 100%.", "profiles": get_profiles_list()
+        })
+
     results = []
     for name, config in FORMATS_CONFIG.items():
         w, h, s_cat, p_cat, s_count, z_count = config
-        len_m = (2 * (w + h) + 8 * s_width) / 100
+        len_m = (2 * (w + h) + FRAME_MARGIN * s_width) / 100
         area_m2 = (w * h) / 10000
         c_surowiec = (area_m2 * front_p) + (area_m2 * back_p)
         
@@ -171,14 +197,18 @@ async def calculate(
             label = f"RAMA DREWNO: {profile['nazwa']} ({front_label})"
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
+        
+        # Prawidłowe wliczenie robocizny do ostatecznej ceny
         c_robocizna = get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0
+        total_cost = c_surowiec + c_robocizna
+        
         divisor = (1 - (margin / 100))
-        net = c_surowiec / (divisor if divisor > 0 else 0.01)
+        net = total_cost / divisor
         gross = net * (1 + (vat / 100))
         
         res_row = {"size": name, "net": f"{net:.2f}", "gross": f"{gross:.2f}"}
         if is_admin:
-            res_row.update({"surowiec": f"{c_surowiec:.2f}", "mr": f"{net:.2f}", "rb": f"{(c_surowiec+c_robocizna):.2f}", "zmr": f"{(net-c_surowiec):.2f}"})
+            res_row.update({"surowiec": f"{c_surowiec:.2f}", "mr": f"{net:.2f}", "rb": f"{total_cost:.2f}", "zmr": f"{(net-total_cost):.2f}"})
         results.append(res_row)
 
     return templates.TemplateResponse(request=request, name="index.html", context={
