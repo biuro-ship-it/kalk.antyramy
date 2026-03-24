@@ -202,14 +202,18 @@ async def calculate(
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
         
-        c_robocizna = get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0
+        # LOGIKA ROBOCIZNY: Brak robocizny dla antyram
+        if is_szklo_anty or is_pleksa_anty:
+            c_robocizna = 0
+        else:
+            c_robocizna = get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0
+            
         total_cost = c_surowiec + c_robocizna
         
         divisor = (1 - (margin / 100))
         net = total_cost / divisor
         gross = net * (1 + (vat / 100))
         
-        # Nowa struktura przesyłana do szablonu HTML (potrzebna do JS)
         results.append({
             "size": name, 
             "net": f"{net:.2f}", 
