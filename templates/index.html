@@ -11,53 +11,31 @@
         
         /* --- OPTYMALIZACJA WYDRUKU (90% SKALI) --- */
         @media print {
-            @page { size: A4; margin: 0.8cm; } /* Zmniejszony margines strony */
-            
+            @page { size: A4; margin: 0.8cm; }
             body { 
                 background: white !important; 
                 color: black !important; 
-                zoom: 90%; /* Globalne zmniejszenie o 10% */
+                zoom: 90%; 
                 -webkit-print-color-adjust: exact;
             }
-
             .no-print { display: none !important; }
-            
-            .print-card { 
-                border: 1px solid #000 !important; 
-                box-shadow: none !important; 
-                margin: 0 !important; 
-                width: 100% !important; 
-                border-radius: 0 !important; 
-            }
-
-            .print-header { 
-                background: #111827 !important; /* Ciemne tło nagłówka */
-                color: white !important; 
-                padding: 15px !important; 
-            }
-
+            .print-card { border: 1px solid #000 !important; box-shadow: none !important; margin: 0 !important; width: 100% !important; border-radius: 0 !important; }
+            .print-header { background: #111827 !important; color: white !important; padding: 15px !important; }
             .print-header h2 { font-size: 20pt !important; }
-
-            /* Ciasna tabela do druku */
             table { width: 100% !important; border-collapse: collapse !important; }
-            th { 
-                border-bottom: 2px solid black !important; 
-                font-size: 8pt !important; 
-                padding: 6px 4px !important; 
-            }
-            td { 
-                border-bottom: 1px solid #ddd !important; 
-                padding: 5px 4px !important; /* Bardzo ciasne wiersze */
-                font-size: 10pt !important; 
-            }
-
+            th { border-bottom: 2px solid black !important; font-size: 8pt !important; padding: 6px 4px !important; }
+            td { border-bottom: 1px solid #ddd !important; padding: 5px 4px !important; font-size: 10pt !important; }
             .text-green-600 { color: #059669 !important; font-weight: bold !important; }
             .text-blue-700 { color: #1d4ed8 !important; font-weight: 800 !important; }
         }
-
         .option-tile { transition: all 0.2s; cursor: pointer; border: 2px solid #e2e8f0; }
         input[type="radio"]:checked + .option-tile { border-color: #2563eb; background-color: #eff6ff; }
     </style>
+
+    <link rel="apple-touch-icon" sizes="180x180" href="https://godek.eu/upload/elogo6.jpg">
+    <link rel="icon" type="image/jpeg" sizes="32x32" href="https://godek.eu/upload/elogo6.jpg">
+    <link rel="icon" type="image/jpeg" sizes="16x16" href="https://godek.eu/upload/elogo6.jpg">
+    <link rel="shortcut icon" href="https://godek.eu/upload/elogo6.jpg">
 </head>
 <body class="text-slate-900 min-h-screen">
     
