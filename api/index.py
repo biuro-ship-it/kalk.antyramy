@@ -70,12 +70,10 @@ def fetch_data():
         rows = [dict(zip(headers, r)) for r in data[1:]]
         
         try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
-        except gspread.exceptions.WorksheetNotFound:
-            ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=4)
-            ws_wyjatki.append_row(["Tryb", "Produkt", "Format", "Marza"])
+        except: ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=4)
             
         wyjatki_data = ws_wyjatki.get_all_values()
-        temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": clean_val(r[3]) for r in wyjatki_data[1:] if len(r) >= 4} if wyjatki_data and len(wyjatki_data) > 1 else {}
+        temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": clean_val(r[3]) for r in wyjatki_data[1:] if len(r) >= 4} if len(wyjatki_data) > 1 else {}
 
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
@@ -86,14 +84,24 @@ def fetch_data():
         LAST_ERROR = f"Błąd Google: {str(e)}"
 
 def get_profiles_list():
-    # Pobieramy też nową kolumnę 'kategoria' do filtrowania w JS
     return [{"nazwa": item.get('nazwa'), "img": item.get('link_zdjecie', ''), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')]
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "profiles": get_profiles_list(), "is_loaded": (len(CACHED_DATA) > 0), "error": LAST_ERROR
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "profiles": get_profiles_list(), "error": LAST_ERROR})
+
+# NOWY ENDPOINT DLA APLIKACJI MOBILNEJ (PWA)
+@app.get("/manifest.json")
+async def manifest():
+    return JSONResponse({
+        "short_name": "Antyramy",
+        "name": "Antyramy.eu Kalkulator",
+        "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
+        "start_url": "/",
+        "display": "standalone",
+        "theme_color": "#0f172a",
+        "background_color": "#ffffff"
     })
 
 @app.post("/refresh")
@@ -102,111 +110,76 @@ async def refresh():
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/calculate", response_class=HTMLResponse)
-async def calculate(
-    request: Request, 
-    profile_name: Optional[str] = Form(None), 
-    mode: str = Form("retail"), 
-    password: Optional[str] = Form(None), 
-    main_category: str = Form("drewno"),  # NOWE: drewno, plastik, alu, antyrama
-    front_type: str = Form("szklo"),      # NOWE: szklo, pleksa
-    with_pp: Optional[str] = Form(None)
-):
+async def calculate(request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("retail"), password: Optional[str] = Form(None), main_category: str = Form("drewno"), front_type: str = Form("szklo"), with_pp: Optional[str] = Form(None)):
     if not CACHED_DATA: fetch_data()
     is_admin = (password == ADMIN_PASSWORD)
-    
     is_antyrama = (main_category == "antyrama")
     is_alu = (main_category == "alu")
     is_pleksa = (front_type == "pleksa")
     
     if not profile_name and not is_antyrama:
-        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz kod profilu.", "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Wybierz profil.", "profiles": get_profiles_list()})
 
-    profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0", "link_zdjecie": ""} if is_antyrama else PROFILES_MAP.get(profile_name)
-    if not profile: return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "error": "Brak profilu w bazie.", "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type})
+    profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
+    if not profile: return RedirectResponse(url="/", status_code=303)
 
     def get_smart_val(key):
         val_str = profile.get(key, "").strip() if not is_antyrama else ""
         return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
 
-    s_width = clean_val(profile.get('szerokosc_listwy', 0))
-    s_price = clean_val(profile.get('cena_zakupu_mb', 0))
-    img_url = profile.get('link_zdjecie', '') 
-    
+    s_width, s_price = clean_val(profile.get('szerokosc_listwy', 0)), clean_val(profile.get('cena_zakupu_mb', 0))
     if is_pleksa: front_p, front_label = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)), "PLEKSA"
     else: front_p, front_label = get_smart_val('cena_szkla_m2'), "SZKŁO"
 
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
 
-    if is_antyrama: m_key = 'marza_anty_hurt' if mode == "wholesale" else 'marza_anty_detal'
-    elif is_alu: m_key = 'marza_alu_hurt' if mode == "wholesale" else 'marza_alu_detal'
-    else: m_key = 'marza_hurt' if mode == "wholesale" else 'marza'
-        
-    base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0)) or get_smart_val('marza_hurt' if mode == "wholesale" else 'marza')
+    m_key = 'marza_anty_hurt' if (is_antyrama and mode=="wholesale") else ('marza_anty_detal' if is_antyrama else ('marza_alu_hurt' if (is_alu and mode=="wholesale") else ('marza_alu_detal' if is_alu else ('marza_hurt' if mode=="wholesale" else 'marza'))))
+    base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0))
 
     results = []
     for name, config in FORMATS_CONFIG.items():
         w, h, s_cat, p_cat, s_count, z_count = config
         len_m, area_m2 = (2*(w+h) + FRAME_MARGIN*s_width)/100, (w*h)/10000
         c_surowiec = (area_m2 * front_p) + (area_m2 * back_p)
-        
         if is_antyrama: c_surowiec += (s_count * clip_p) + (z_count * hook_p); label = f"ANTYRAMA {front_label}"
         elif is_alu: c_surowiec += (len_m * s_price) + alu_kit_p; label = f"ALU: {profile['nazwa']} ({front_label})"
         else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0); label = f"RAMA {main_category.upper()}: {profile['nazwa']} ({front_label})"
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
-        c_robocizna = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
-        total_cost = c_surowiec + c_robocizna
+        total_cost = c_surowiec + (0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0))
         
         exception_key = f"{mode}_{label}_{name}"
-        active_margin = MARGIN_EXCEPTIONS.get(exception_key)
-        if active_margin is None: active_margin = base_margin
-        if active_margin >= 100: active_margin = 99.9
-        
-        divisor = (1 - (active_margin / 100))
-        net, gross = total_cost / divisor, (total_cost / divisor) * (1 + (vat / 100))
+        active_margin = MARGIN_EXCEPTIONS.get(exception_key, base_margin)
+        net = total_cost / (1 - (active_margin / 100))
         
         results.append({
-            "size": name, "net": f"{net:.2f}", "gross": f"{gross:.2f}",
+            "size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}",
             "surowiec": f"{c_surowiec:.2f}", "total_cost": f"{total_cost:.2f}",
             "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"
         })
 
     return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "results": results, "profile": label, "margin": base_margin, "mode": mode,
-        "is_admin": is_admin, "profiles": get_profiles_list(), "main_category": main_category, "front_type": front_type, 
-        "with_pp": with_pp, "selected_profile": profile_name, "img_url": img_url,
-        "vat": vat, "admin_password": password if is_admin else None
+        "request": request, "results": results, "profile": label, "mode": mode, "is_admin": is_admin, "profiles": get_profiles_list(), 
+        "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None
     })
 
 @app.post("/save_margins")
 async def save_margins(request: Request):
     try:
         data = await request.json()
-        if data.get("password") != ADMIN_PASSWORD:
-            return JSONResponse({"success": False, "error": "Brak autoryzacji"})
-
+        if data.get("password") != ADMIN_PASSWORD: return JSONResponse({"success": False})
         env_creds = os.environ.get("GOOGLE_CREDENTIALS")
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope) if env_creds else ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        
         wb = gspread.authorize(creds).open("Baza Ramek")
-        try: ws = wb.worksheet("Wyjatki_Marze")
-        except: ws = wb.add_worksheet("Wyjatki_Marze", 100, 4)
-
+        ws = wb.worksheet("Wyjatki_Marze")
         all_data = ws.get_all_values()
-        if not all_data: all_data = [["Tryb", "Produkt", "Format", "Marza"]]
-
         existing = {f"{r[0]}_{r[1]}_{r[2]}": r for r in all_data[1:] if len(r) >= 4}
-        for u in data.get("updates", []):
-            existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin'])]
-
+        for u in data.get("updates", []): existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin'])]
         new_data = [all_data[0]] + list(existing.values())
         ws.clear()
-        try: ws.update('A1', new_data)
-        except: ws.update(values=new_data, range_name='A1')
-
-        fetch_data() 
+        ws.update('A1', new_data)
+        fetch_data()
         return JSONResponse({"success": True})
-    except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)})
+    except Exception as e: return JSONResponse({"success": False, "error": str(e)})
