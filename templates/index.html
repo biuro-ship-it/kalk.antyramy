@@ -79,10 +79,30 @@
                 <button onclick="window.print()" class="no-print bg-white text-slate-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase">🖨️ Drukuj</button>
             </div>
             <table class="w-full">
-                <thead><tr class="bg-slate-50 text-[9px] font-black text-slate-400 uppercase border-b"><th class="p-4 text-left">Format</th>{% if is_admin %}<th class="p-4 text-right">Surowiec</th><th class="p-4 text-center">Marża %</th><th class="p-4 text-right text-green-600">Zysk</th>{% endif %}<th class="p-4 text-right">Netto</th><th class="p-4 text-right bg-blue-50 text-blue-700">Brutto</th></tr></thead>
-                <tbody class="font-black">{% for r in results %}<tr class="border-b border-slate-50"><td class="p-4 text-sm">{{ r.size }} cm</td>{% if is_admin %}<td class="p-4 text-right text-slate-500 text-[10px]">{{ r.surowiec }} zł</td><td class="p-4 text-center"><input type="number" step="0.1" value="{{ r.active_margin }}" data-size="{{ r.size }}" data-cost="{{ r.total_cost }}" data-vat="{{ vat }}" class="dynamic-margin no-print w-12 text-center bg-slate-100 rounded text-blue-600 text-xs"><span class="hidden print:inline text-xs">{{ r.active_margin }}%</span></td><td class="p-4 text-right text-green-600 text-sm"><span class="profit-price">{{ r.profit }}</span> zł</td>{% endif %}<td class="p-4 text-right text-slate-600 text-sm"><span class="net-price">{{ r.net }}</span> zł</td><td class="p-4 text-right text-base text-blue-700"><span class="gross-price">{{ r.gross }}</span> zł</td></tr>{% endfor %}</tbody>
+                <thead><tr class="bg-slate-50 text-[9px] font-black text-slate-400 uppercase border-b"><th class="p-4 text-left">Format</th>{% if is_admin %}<th class="p-4 text-right">Surowiec</th><th class="p-4 text-center">Praca (zł)</th><th class="p-4 text-center">Marża %</th><th class="p-4 text-right text-green-600">Zysk</th>{% endif %}<th class="p-4 text-right">Netto</th><th class="p-4 text-right bg-blue-50 text-blue-700">Brutto</th></tr></thead>
+                <tbody class="font-black">{% for r in results %}
+                    <tr class="border-b border-slate-50">
+                        <td class="p-4 text-sm">{{ r.size }} cm</td>
+                        {% if is_admin %}
+                        <td class="p-4 text-right text-slate-500 text-[10px]">{{ r.surowiec }} zł</td>
+                        <td class="p-4 text-center">
+                            <input type="number" step="0.1" value="{{ r.labor }}" data-type="labor" class="dynamic-calc no-print w-14 text-center bg-slate-100 rounded text-slate-900 text-xs py-1">
+                            <span class="hidden print:inline text-xs">{{ r.labor }} zł</span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <input type="number" step="0.1" value="{{ r.active_margin }}" data-type="margin" class="dynamic-calc no-print w-12 text-center bg-slate-100 rounded text-blue-600 text-xs py-1">
+                            <span class="hidden print:inline text-xs">{{ r.active_margin }}%</span>
+                        </td>
+                        <td class="p-4 text-right text-green-600 text-sm">
+                            <span class="profit-price" data-surowiec="{{ r.surowiec }}">{{ r.profit }}</span> zł
+                        </td>
+                        {% endif %}
+                        <td class="p-4 text-right text-slate-600 text-sm"><span class="net-price">{{ r.net }}</span> zł</td>
+                        <td class="p-4 text-right text-base text-blue-700"><span class="gross-price" data-vat="{{ vat }}">{{ r.gross }}</span> zł</td>
+                    </tr>
+                {% endfor %}</tbody>
             </table>
-            <div class="p-4 bg-slate-50 border-t flex justify-between items-center text-[8px] font-black text-slate-400 uppercase"><span>Antyramy.eu</span>{% if is_admin %}<button onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px]">💾 Zapisz marże</button>{% endif %}<span>VAT {{ vat }}%</span></div>
+            <div class="p-4 bg-slate-50 border-t flex justify-between items-center text-[8px] font-black text-slate-400 uppercase"><span>Antyramy.eu</span>{% if is_admin %}<button onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px]">💾 Zapisz Marże i Pracę</button>{% endif %}<span>VAT {{ vat }}%</span></div>
         </div>
         {% endif %}
     </main>
@@ -107,25 +127,60 @@
 
         {% if is_admin %}
         const API_MODE = "{{ mode }}", API_PROFILE = "{{ profile }}", API_PASSWORD = "{{ admin_password }}";
-        document.querySelectorAll('.dynamic-margin').forEach(input => {
+        
+        document.querySelectorAll('.dynamic-calc').forEach(input => {
             input.addEventListener('input', function() {
-                let margin = parseFloat(this.value) || 0; if(margin >= 100) margin = 99.9;
-                const cost = parseFloat(this.getAttribute('data-cost')), vat = parseFloat(this.getAttribute('data-vat'));
-                const net = cost / (1 - (margin / 100));
                 const row = this.closest('tr');
-                row.querySelector('.net-price').innerText = net.toFixed(2);
-                row.querySelector('.gross-price').innerText = (net * (1 + vat/100)).toFixed(2);
-                row.querySelector('.profit-price').innerText = (net - cost).toFixed(2);
+                const marginInp = row.querySelector('[data-type="margin"]');
+                const laborInp = row.querySelector('[data-type="labor"]');
+                const profitEl = row.querySelector('.profit-price');
+                const netEl = row.querySelector('.net-price');
+                const grossEl = row.querySelector('.gross-price');
+
+                let margin = parseFloat(marginInp.value) || 0;
+                if(margin >= 100) margin = 99.9;
+                
+                const surowiec = parseFloat(profitEl.getAttribute('data-surowiec'));
+                const labor = parseFloat(laborInp.value) || 0;
+                const vat = parseFloat(grossEl.getAttribute('data-vat'));
+
+                const total_cost = surowiec + labor;
+                const net = total_cost / (1 - (margin / 100));
+                const gross = net * (1 + vat/100);
+                const profit = net - total_cost;
+
+                netEl.innerText = net.toFixed(2);
+                grossEl.innerText = gross.toFixed(2);
+                profitEl.innerText = profit.toFixed(2);
             });
         });
+
         async function saveMarginsToDB() {
-            const btn = document.getElementById('saveBtn'); btn.innerText = '⏳...';
-            const updates = Array.from(document.querySelectorAll('.dynamic-margin')).map(input => ({
-                mode: API_MODE, profile: API_PROFILE, size: input.getAttribute('data-size'), margin: parseFloat(input.value) || 0
-            }));
+            const btn = document.getElementById('saveBtn'); btn.innerText = '⏳ ZAPISYWANIE...';
+            const updates = Array.from(document.querySelectorAll('tr.border-b')).map(row => {
+                const marginInp = row.querySelector('[data-type="margin"]');
+                const laborInp = row.querySelector('[data-type="labor"]');
+                if(!marginInp) return null;
+                return {
+                    mode: API_MODE, 
+                    profile: API_PROFILE, 
+                    size: marginInp.getAttribute('data-size'), 
+                    margin: parseFloat(marginInp.value) || 0,
+                    labor: parseFloat(laborInp.value) || 0
+                };
+            }).filter(u => u !== null);
+
             try {
-                const res = await fetch('/save_margins', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ password: API_PASSWORD, updates: updates }) });
-                const data = await res.json(); if (data.success) { btn.innerText = '✅ OK'; setTimeout(() => { btn.innerText = '💾 Zapisz marże'; }, 2000); }
+                const res = await fetch('/save_margins', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ password: API_PASSWORD, updates: updates }) 
+                });
+                const data = await res.json(); 
+                if (data.success) { 
+                    btn.innerText = '✅ ZAPISANO W CHMURZE'; 
+                    setTimeout(() => { btn.innerText = '💾 Zapisz Marże i Pracę'; }, 2000); 
+                }
             } catch (err) { alert('Błąd sieci'); }
         }
         {% endif %}

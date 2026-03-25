@@ -70,10 +70,17 @@ def fetch_data():
         rows = [dict(zip(headers, r)) for r in data[1:]]
         
         try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
-        except: ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=4)
+        except: ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=5)
             
         wyjatki_data = ws_wyjatki.get_all_values()
-        temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": clean_val(r[3]) for r in wyjatki_data[1:] if len(r) >= 4} if len(wyjatki_data) > 1 else {}
+        temp_wyjatki = {}
+        if len(wyjatki_data) > 1:
+            for r in wyjatki_data[1:]:
+                # Klucz: Tryb_Produkt_Format -> (Marża, Robocizna)
+                if len(r) >= 4:
+                    m = clean_val(r[3])
+                    l = clean_val(r[4]) if len(r) >= 5 else None
+                    temp_wyjatki[f"{r[0]}_{r[1]}_{r[2]}"] = {"m": m, "l": l}
 
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
@@ -91,7 +98,6 @@ async def home(request: Request):
     if not CACHED_DATA: fetch_data()
     return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "profiles": get_profiles_list(), "error": LAST_ERROR})
 
-# NOWY ENDPOINT DLA APLIKACJI MOBILNEJ (PWA)
 @app.get("/manifest.json")
 async def manifest():
     return JSONResponse({
@@ -147,15 +153,23 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0); label = f"RAMA {main_category.upper()}: {profile['nazwa']} ({front_label})"
             
         if with_pp: c_surowiec += (area_m2 * pp_p)
-        total_cost = c_surowiec + (0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0))
         
+        # ROBOCIZNA: Baza z ustawień
+        base_labor = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
+        
+        # POBIERANIE WYJĄTKÓW (Marża i Robocizna)
         exception_key = f"{mode}_{label}_{name}"
-        active_margin = MARGIN_EXCEPTIONS.get(exception_key, base_margin)
+        saved_data = MARGIN_EXCEPTIONS.get(exception_key, {})
+        
+        active_margin = saved_data.get("m", base_margin)
+        active_labor = saved_data.get("l", base_labor) if saved_data.get("l") is not None else base_labor
+        
+        total_cost = c_surowiec + active_labor
         net = total_cost / (1 - (active_margin / 100))
         
         results.append({
             "size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}",
-            "surowiec": f"{c_surowiec:.2f}", "total_cost": f"{total_cost:.2f}",
+            "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}",
             "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"
         })
 
@@ -175,8 +189,12 @@ async def save_margins(request: Request):
         wb = gspread.authorize(creds).open("Baza Ramek")
         ws = wb.worksheet("Wyjatki_Marze")
         all_data = ws.get_all_values()
-        existing = {f"{r[0]}_{r[1]}_{r[2]}": r for r in all_data[1:] if len(r) >= 4}
-        for u in data.get("updates", []): existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin'])]
+        if not all_data: all_data = [["Tryb", "Produkt", "Format", "Marza", "Robocizna"]]
+        
+        existing = {f"{r[0]}_{r[1]}_{r[2]}": r for r in all_data[1:] if len(r) >= 3}
+        for u in data.get("updates", []): 
+            existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
+        
         new_data = [all_data[0]] + list(existing.values())
         ws.clear()
         ws.update('A1', new_data)
