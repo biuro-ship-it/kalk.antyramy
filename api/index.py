@@ -60,22 +60,17 @@ def fetch_data():
         env_creds = os.environ.get("GOOGLE_CREDENTIALS")
         if env_creds: creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope)
         else: creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
-        
         data = wb.sheet1.get_all_values()
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
-        
         try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
         except: 
             ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=5)
             ws_wyjatki.append_row(["Tryb", "Produkt", "Format", "Marza", "Robocizna"])
-            
         wyjatki_data = ws_wyjatki.get_all_values()
         temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": {"m": clean_val(r[3]), "l": clean_val(r[4]) if len(r) >= 5 else None} for r in wyjatki_data[1:] if len(r) >= 3}
-
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
             CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
@@ -88,17 +83,10 @@ def fetch_data():
 async def startup_event():
     fetch_data()
 
-def get_base_context(request: Request):
-    return {
-        "request": request,
-        "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')],
-        "error": LAST_ERROR
-    }
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse(request=request, name="index.html", context=get_base_context(request))
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
 
 @app.get("/manifest.json")
 async def manifest():
@@ -126,7 +114,6 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
     if not profile: return RedirectResponse(url="/", status_code=303)
 
-    # WYKORZYSTANIE TWOJEJ ISTNIEJĄCEJ KOLUMNY "link_zdjecie"
     przekroj_img = profile.get('link_zdjecie', '') if not is_antyrama else ''
     description = profile.get('Opis_Dodatkowy', '') if not is_antyrama else ''
 
@@ -159,9 +146,10 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         net = total_cost / (1 - (active_margin / 100))
         results.append({"size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}", "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}", "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"})
 
-    ctx = get_base_context(request)
-    ctx.update({"results": results, "profile": label, "mode": mode, "is_admin": is_admin, "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description})
-    return templates.TemplateResponse(request=request, name="index.html", context=ctx)
+    return templates.TemplateResponse(request=request, name="index.html", context={
+        "request": request, "results": results, "profile": label, "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
+        "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description
+    })
 
 @app.post("/save_margins")
 async def save_margins(request: Request):
