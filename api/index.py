@@ -91,8 +91,7 @@ async def home(request: Request):
 @app.get("/manifest.json")
 async def manifest():
     content = {
-        "short_name": "Antyramy",
-        "name": "Antyramy.eu Kalkulator",
+        "short_name": "Antyramy", "name": "Antyramy.eu Kalkulator",
         "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
         "start_url": "/", "display": "standalone", "theme_color": "#0f172a", "background_color": "#ffffff"
     }
@@ -110,26 +109,20 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     is_antyrama = (main_category == "antyrama")
     is_alu = (main_category == "alu")
     is_pleksa = (front_type == "pleksa")
-    
     profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
     if not profile: return RedirectResponse(url="/", status_code=303)
-
     przekroj_img = profile.get('link_zdjecie', '') if not is_antyrama else ''
     description = profile.get('Opis_Dodatkowy', '') if not is_antyrama else ''
-
     def get_smart_val(key):
         val_str = profile.get(key, "").strip() if not is_antyrama else ""
         return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
-
     s_width, s_price = clean_val(profile.get('szerokosc_listwy', 0)), clean_val(profile.get('cena_zakupu_mb', 0))
     front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)) if is_pleksa else get_smart_val('cena_szkla_m2')
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
-
     m_key = 'marza_anty_hurt' if (is_antyrama and mode=="wholesale") else ('marza_anty_detal' if is_antyrama else ('marza_alu_hurt' if (is_alu and mode=="wholesale") else ('marza_alu_detal' if is_alu else ('marza_hurt' if mode=="wholesale" else 'marza'))))
     base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0))
     label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
-    
     results = []
     for name, config in FORMATS_CONFIG.items():
         w, h, s_cat, p_cat, s_count, z_count = config
@@ -145,9 +138,8 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         total_cost = c_surowiec + active_labor
         net = total_cost / (1 - (active_margin / 100))
         results.append({"size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}", "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}", "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"})
-
     return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "results": results, "profile": label, "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
+        "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
         "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description
     })
 
@@ -159,12 +151,33 @@ async def save_margins(request: Request):
         env_creds = os.environ.get("GOOGLE_CREDENTIALS")
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope) if env_creds else ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        wb = gspread.authorize(creds).open("Baza Ramek")
+        client = gspread.authorize(creds)
+        wb = client.open("Baza Ramek")
+        
+        # 1. Zapis marż i pracy (Wyjątki)
         ws = wb.worksheet("Wyjatki_Marze")
         all_data = ws.get_all_values()
         header = ["Tryb", "Produkt", "Format", "Marza", "Robocizna"]
         existing = {f"{r[0]}_{r[1]}_{r[2]}": r for r in all_data[1:] if len(r) >= 3} if all_data else {}
-        for u in data.get("updates", []): existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
-        ws.clear(); ws.update(values=[header] + list(existing.values()), range_name='A1'); fetch_data()
+        for u in data.get("updates", []): 
+            existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
+        ws.clear(); ws.update(values=[header] + list(existing.values()), range_name='A1')
+
+        # 2. Zapis zdjęcia i opisu (Główna baza)
+        if data.get("profile_raw_name"):
+            main_ws = wb.sheet1
+            main_rows = main_ws.get_all_values()
+            headers = [h.strip() for h in main_rows[0]]
+            try:
+                img_col = headers.index("link_zdjecie") + 1
+                desc_col = headers.index("Opis_Dodatkowy") + 1
+                for i, row in enumerate(main_rows[1:], start=2):
+                    if row[0] == data["profile_raw_name"]:
+                        main_ws.update_cell(i, img_col, data.get("new_img", ""))
+                        main_ws.update_cell(i, desc_col, data.get("new_desc", ""))
+                        break
+            except: pass # Jeśli nie ma kolumn, pomiń
+
+        fetch_data()
         return JSONResponse({"success": True})
     except Exception as e: return JSONResponse({"success": False, "error": str(e)})
