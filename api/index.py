@@ -1,180 +1,162 @@
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-import os
-import json
-import re
-import traceback
-from typing import Optional
-from threading import Lock
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wycena - Antyramy.eu</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://godek.eu/upload/elogo6.jpg">
+    <link rel="icon" type="image/jpeg" sizes="32x32" href="https://godek.eu/upload/elogo6.jpg">
+    <link rel="shortcut icon" href="https://godek.eu/upload/elogo6.jpg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        @media print {
+            @page { size: A4; margin: 0.8cm; }
+            body { background: white !important; zoom: 90%; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .print-card { border: 1px solid #000 !important; width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
+            .print-header { background: #111827 !important; color: white !important; padding: 15px !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th { border-bottom: 2px solid black !important; font-size: 8pt !important; padding: 6px 4px !important; }
+            td { border-bottom: 1px solid #ddd !important; padding: 5px 4px !important; font-size: 10pt !important; }
+        }
+        .option-tile { transition: all 0.2s; cursor: pointer; border: 2px solid #e2e8f0; }
+        input[type="radio"]:checked + .option-tile { border-color: #2563eb; background-color: #eff6ff; }
+    </style>
+</head>
+<body class="text-slate-900 min-h-screen">
+    <nav class="bg-white border-b border-slate-200 py-4 mb-6 no-print shadow-sm">
+        <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="https://godek.eu/upload/elogo6.jpg" class="h-8 w-8 rounded-md shadow-sm">
+                <h1 class="text-sm font-black uppercase tracking-widest text-slate-700">Antyramy.eu</h1>
+            </div>
+            <form action="/refresh" method="post"><button type="submit" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors">🔄 Odśwież Baze</button></form>
+        </div>
+    </nav>
 
-app = FastAPI()
+    <main class="max-w-6xl mx-auto px-4 pb-20">
+        <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 no-print mb-8">
+            <form action="/calculate" method="post" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-8">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">1. Produkt</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {% for val, label, icon in [('drewno', 'Drewno', '🪵'), ('plastik', 'Plastik', '🪟'), ('alu', 'Aluminium', '⛓️'), ('antyrama', 'Antyrama', '🖼️')] %}
+                            <label><input type="radio" name="main_category" value="{{ val }}" class="sr-only cat-radio" {{ 'checked' if main_category == val or (not main_category and val == 'drewno') }}><div class="option-tile bg-white p-4 rounded-xl text-center"><span class="block text-2xl mb-1">{{ icon }}</span><span class="block text-[10px] font-black uppercase text-slate-600">{{ label }}</span></div></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="lg:col-span-4">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">2. Wypełnienie</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            {% for val, label in [('szklo', 'Szkło'), ('pleksa', 'Pleksa')] %}<label><input type="radio" name="front_type" value="{{ val }}" class="sr-only" {{ 'checked' if front_type == val or (not front_type and val == 'szklo') }}><div class="option-tile bg-white p-4 rounded-xl text-center flex items-center justify-center h-[76px]"><span class="text-[10px] font-black uppercase text-slate-700">{{ label }}</span></div></label>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-6 border-t">
+                    <div class="md:col-span-4" id="profileContainer"><label class="block text-[10px] font-black text-slate-400 mb-2">3. Kod / Kolor</label><select name="profile_name" id="profileSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black uppercase text-sm outline-none focus:border-blue-500"></select></div>
+                    <div class="md:col-span-3"><label class="block text-[10px] font-black text-slate-400 mb-2">4. Tryb & PP</label><select name="mode" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-black text-sm mb-2"><option value="retail" {{ 'selected' if mode == 'retail' }}>DETAL</option><option value="wholesale" {{ 'selected' if mode == 'wholesale' }}>HURT</option></select><label class="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer"><input type="checkbox" name="with_pp" value="true" class="w-4 h-4 text-blue-600 rounded" {{ 'checked' if with_pp }}><span class="text-[10px] font-black text-slate-600 uppercase">Passe-partout</span></label></div>
+                    <div class="md:col-span-3"><label class="block text-[10px] font-black text-slate-400 mb-2">5. Hasło</label><input type="password" name="password" placeholder="****" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black outline-none focus:border-blue-500"></div>
+                    <div class="md:col-span-2 flex items-end"><button type="submit" class="w-full bg-blue-600 text-white font-black py-3.5 rounded-xl uppercase text-[10px] shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">Oblicz</button></div>
+                </div>
+            </form>
+        </div>
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    error_details = traceback.format_exc()
-    return HTMLResponse(
-        content=f"<div style='padding:20px; font-family:monospace; color:#b91c1c; background:#fef2f2;'><pre>{error_details}</pre></div>",
-        status_code=500
-    )
+        {% if results %}
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 print:block">
+            <div class="xl:col-span-2 bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden print-card">
+                <div class="p-6 bg-slate-900 text-white flex justify-between items-center print-header">
+                    <div><p class="text-[9px] font-black uppercase opacity-60 mb-1">Karta wyceny</p><h2 class="text-2xl font-black uppercase">{{ profile }}</h2></div>
+                    <button onclick="window.print()" class="no-print bg-white text-slate-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-slate-100 transition-all">🖨️ Drukuj</button>
+                </div>
+                <table class="w-full">
+                    <thead><tr class="bg-slate-50 text-[9px] font-black text-slate-400 uppercase border-b"><th class="p-4 text-left">Format</th>{% if is_admin %}<th class="p-4 text-right">Surowiec</th><th class="p-4 text-center">Praca (zł)</th><th class="p-4 text-center">Marża %</th><th class="p-4 text-right text-green-600">Zysk</th>{% endif %}<th class="p-4 text-right">Netto</th><th class="p-4 text-right bg-blue-50 text-blue-700">Brutto</th></tr></thead>
+                    <tbody class="font-black">{% for r in results %}
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50">
+                            <td class="p-4 text-sm">{{ r.size }} cm</td>
+                            {% if is_admin %}
+                            <td class="p-4 text-right text-slate-500 text-[10px]">{{ r.surowiec }} zł</td>
+                            <td class="p-4 text-center"><input type="number" step="0.1" value="{{ r.labor }}" data-type="labor" data-size="{{ r.size }}" class="dynamic-calc no-print w-14 text-center bg-slate-100 rounded text-slate-900 font-bold text-xs py-1 border border-transparent focus:border-blue-300 outline-none"><span class="hidden print:inline text-xs">{{ r.labor }} zł</span></td>
+                            <td class="p-4 text-center"><input type="number" step="0.1" value="{{ r.active_margin }}" data-type="margin" data-size="{{ r.size }}" class="dynamic-calc no-print w-12 text-center bg-slate-100 rounded text-blue-600 font-bold text-xs py-1 border border-transparent focus:border-blue-300 outline-none"><span class="hidden print:inline text-xs">{{ r.active_margin }}%</span></td>
+                            <td class="p-4 text-right text-green-600 text-sm"><span class="profit-price" data-surowiec="{{ r.surowiec }}">{{ r.profit }}</span> zł</td>
+                            {% endif %}
+                            <td class="p-4 text-right text-slate-600 text-sm"><span class="net-price">{{ r.net }}</span> zł</td>
+                            <td class="p-4 text-right text-base text-blue-700"><span class="gross-price" data-vat="{{ vat }}">{{ r.gross }}</span> zł</td>
+                        </tr>
+                    {% endfor %}</tbody>
+                </table>
+                <div class="p-4 bg-slate-50 border-t flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest"><span>Antyramy.eu</span>{% if is_admin %}<button onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px] hover:bg-green-600 transition-all">💾 Zapisz Marże i Pracę</button>{% endif %}<span>VAT {{ vat }}%</span></div>
+            </div>
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "qwerty11") 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-creds_path = os.path.join(BASE_DIR, 'credentials.json')
-templates_path = os.path.join(BASE_DIR, "..", "templates")
-templates = Jinja2Templates(directory=templates_path)
+            {% if przekroj_img or description %}
+            <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-200 no-print space-y-8 flex flex-col items-center">
+                {% if przekroj_img %}
+                <div class="text-center w-full">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Zdjęcie / Przekrój</p>
+                    <img src="{{ przekroj_img }}" alt="Wizualizacja {{ profile }}" class="max-w-full h-auto rounded-2xl shadow-inner border border-slate-100 bg-slate-50 p-2">
+                </div>
+                {% endif %}
+                {% if description %}
+                <div class="w-full border-t border-slate-100 pt-8">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Informacje o produkcie</p>
+                    <div class="prose prose-sm prose-slate bg-blue-50/50 p-5 rounded-2xl border border-blue-100 text-slate-700 text-sm font-semibold whitespace-pre-line leading-relaxed">{{ description }}</div>
+                </div>
+                {% endif %}
+                <div class="w-full border-t border-slate-100 pt-6 text-center text-[10px] font-bold text-slate-300 uppercase">Antyramy.eu</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
 
-data_lock = Lock()
-CACHED_DATA = []
-PROFILES_MAP = {}
-GLOBAL_SETTINGS = {}
-MARGIN_EXCEPTIONS = {}
-LAST_ERROR = None
-FRAME_MARGIN = 8
+    <script>
+        const allProfiles = [{% for p in profiles %}{ nazwa: "{{ p.nazwa }}", kat: "{{ p.kat }}" },{% endfor %}];
+        const currentProfileSelection = "{{ selected_profile|default('') }}";
+        function filterProfiles() {
+            const selectedCat = document.querySelector('.cat-radio:checked').value;
+            const container = document.getElementById('profileContainer');
+            const select = document.getElementById('profileSelect');
+            if (selectedCat === 'antyrama') { container.style.display = 'none'; } 
+            else {
+                container.style.display = 'block'; select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
+                const filtered = allProfiles.filter(p => p.kat === selectedCat || (!p.kat && selectedCat === 'drewno'));
+                filtered.forEach(p => { const opt = document.createElement('option'); opt.value = opt.text = p.nazwa; if (p.nazwa === currentProfileSelection) opt.selected = true; select.appendChild(opt); });
+                if (select.selectedIndex <= 0 && filtered.length > 0) select.selectedIndex = 1;
+            }
+        }
+        document.querySelectorAll('.cat-radio').forEach(r => r.addEventListener('change', filterProfiles));
+        document.addEventListener('DOMContentLoaded', filterProfiles);
 
-FORMATS_CONFIG = {
-    "10x15": (10, 15, "mala", "mala", 4, 0), "13x18": (13, 18, "mala", "mala", 4, 0),
-    "15x21": (15, 21, "srednia", "srednia", 4, 0), "18x24": (18, 24, "srednia", "srednia", 4, 0),
-    "20x30": (20, 30, "duza", "srednia", 4, 0), "21x29.7": (21, 29.7, "duza", "srednia", 4, 0),
-    "24x30": (24, 30, "duza", "duza", 4, 0), "25x38": (25, 38, "duza", "duza", 6, 1),
-    "30x40": (30, 40, "duza", "duza", 6, 1), "30x45": (30, 45, None, "duza", 6, 1),
-    "40x50": (40, 50, None, "duza", 12, 2), "40x60": (40, 60, None, "duza", 12, 2),
-    "50x70": (50, 70, None, "duza", 14, 2), "60x80": (60, 80, None, "duza", 14, 2),
-    "70x100": (70, 100, None, "duza", 14, 3),
-}
-
-def clean_val(val):
-    if val is None or val == "": return 0.0
-    s = str(val).replace(',', '.').strip()
-    match = re.findall(r"\d+\.?\d*", s)
-    try: return float(match[0]) if match else 0.0
-    except: return 0.0
-
-def fetch_data():
-    global CACHED_DATA, GLOBAL_SETTINGS, PROFILES_MAP, MARGIN_EXCEPTIONS, LAST_ERROR
-    try:
-        LAST_ERROR = None
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        env_creds = os.environ.get("GOOGLE_CREDENTIALS")
-        if env_creds: creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope)
-        else: creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        client = gspread.authorize(creds)
-        wb = client.open("Baza Ramek")
-        data = wb.sheet1.get_all_values()
-        headers = [h.strip() for h in data[0]]
-        rows = [dict(zip(headers, r)) for r in data[1:]]
-        try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
-        except: 
-            ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=5)
-            ws_wyjatki.append_row(["Tryb", "Produkt", "Format", "Marza", "Robocizna"])
-        wyjatki_data = ws_wyjatki.get_all_values()
-        temp_wyjatki = {}
-        if len(wyjatki_data) > 1:
-            for r in wyjatki_data[1:]:
-                if len(r) >= 3:
-                    m = clean_val(r[3]) if len(r) >= 4 else 0.0
-                    l = clean_val(r[4]) if len(r) >= 5 else None
-                    temp_wyjatki[f"{r[0]}_{r[1]}_{r[2]}"] = {"m": m, "l": l}
-        with data_lock:
-            GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
-            CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
-            PROFILES_MAP = {p.get("nazwa"): p for p in CACHED_DATA if p.get("nazwa")}
-            MARGIN_EXCEPTIONS = temp_wyjatki
-    except Exception as e:
-        LAST_ERROR = f"Błąd Google: {str(e)}"
-
-@app.on_event("startup")
-async def startup_event():
-    fetch_data()
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
-
-# POPRAWIONA FUNKCJA MANIFESTU
-@app.get("/manifest.json")
-async def manifest():
-    content = {
-        "short_name": "Antyramy",
-        "name": "Antyramy.eu Kalkulator",
-        "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
-        "start_url": "/",
-        "display": "standalone",
-        "theme_color": "#0f172a",
-        "background_color": "#ffffff"
-    }
-    return JSONResponse(content=content, headers={"Content-Type": "application/manifest+json"})
-
-@app.post("/refresh")
-async def refresh():
-    fetch_data()
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/calculate", response_class=HTMLResponse)
-async def calculate(request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("retail"), password: Optional[str] = Form(None), main_category: str = Form("drewno"), front_type: str = Form("szklo"), with_pp: Optional[str] = Form(None)):
-    if not CACHED_DATA: fetch_data()
-    is_admin = (password == ADMIN_PASSWORD)
-    is_antyrama = (main_category == "antyrama")
-    is_alu = (main_category == "alu")
-    is_pleksa = (front_type == "pleksa")
-    profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
-    if not profile: return RedirectResponse(url="/", status_code=303)
-    def get_smart_val(key):
-        val_str = profile.get(key, "").strip() if not is_antyrama else ""
-        return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
-    s_width, s_price = clean_val(profile.get('szerokosc_listwy', 0)), clean_val(profile.get('cena_zakupu_mb', 0))
-    front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)) if is_pleksa else get_smart_val('cena_szkla_m2')
-    back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
-    pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
-    m_key = 'marza_anty_hurt' if (is_antyrama and mode=="wholesale") else ('marza_anty_detal' if is_antyrama else ('marza_alu_hurt' if (is_alu and mode=="wholesale") else ('marza_alu_detal' if is_alu else ('marza_hurt' if mode=="wholesale" else 'marza'))))
-    base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0))
-    label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
-    results = []
-    for name, config in FORMATS_CONFIG.items():
-        w, h, s_cat, p_cat, s_count, z_count = config
-        len_m, area_m2 = (2*(w+h) + FRAME_MARGIN*s_width)/100, (w*h)/10000
-        c_surowiec = (area_m2 * front_p) + (area_m2 * back_p)
-        if is_antyrama: c_surowiec += (s_count * clip_p) + (z_count * hook_p)
-        elif is_alu: c_surowiec += (len_m * s_price) + alu_kit_p
-        else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0)
-        if with_pp: c_surowiec += (area_m2 * pp_p)
-        base_labor = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
-        saved_data = MARGIN_EXCEPTIONS.get(f"{mode}_{label}_{name}", {})
-        active_margin = saved_data.get("m", base_margin)
-        active_labor = saved_data.get("l", base_labor) if saved_data.get("l") is not None else base_labor
-        total_cost = c_surowiec + active_labor
-        net = total_cost / (1 - (active_margin / 100))
-        results.append({
-            "size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}",
-            "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}",
-            "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"
-        })
-    return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "results": results, "profile": label, "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
-        "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None
-    })
-
-@app.post("/save_margins")
-async def save_margins(request: Request):
-    try:
-        data = await request.json()
-        if data.get("password") != ADMIN_PASSWORD: return JSONResponse({"success": False})
-        env_creds = os.environ.get("GOOGLE_CREDENTIALS")
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope) if env_creds else ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
-        wb = gspread.authorize(creds).open("Baza Ramek")
-        ws = wb.worksheet("Wyjatki_Marze")
-        all_data = ws.get_all_values()
-        header = ["Tryb", "Produkt", "Format", "Marza", "Robocizna"]
-        existing = {f"{r[0]}_{r[1]}_{r[2]}": r for r in all_data[1:] if len(r) >= 3} if all_data else {}
-        for u in data.get("updates", []): 
-            existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
-        new_rows = [header] + list(existing.values())
-        ws.clear()
-        ws.update(values=new_rows, range_name='A1')
-        fetch_data()
-        return JSONResponse({"success": True})
-    except Exception as e: return JSONResponse({"success": False, "error": str(e)})
+        {% if is_admin %}
+        const API_MODE = "{{ mode }}", API_PROFILE = "{{ profile }}", API_PASSWORD = "{{ admin_password }}";
+        document.querySelectorAll('.dynamic-calc').forEach(input => {
+            input.addEventListener('input', function() {
+                const row = this.closest('tr');
+                const marginInp = row.querySelector('[data-type="margin"]'), laborInp = row.querySelector('[data-type="labor"]'), profitEl = row.querySelector('.profit-price'), netEl = row.querySelector('.net-price'), grossEl = row.querySelector('.gross-price');
+                let margin = parseFloat(marginInp.value) || 0; if(margin >= 100) margin = 99.9;
+                const surowiec = parseFloat(profitEl.getAttribute('data-surowiec')), labor = parseFloat(laborInp.value) || 0, vat = parseFloat(grossEl.getAttribute('data-vat'));
+                const total_cost = surowiec + labor, net = total_cost / (1 - (margin / 100)), gross = net * (1 + vat/100), profit = net - total_cost;
+                netEl.innerText = net.toFixed(2); grossEl.innerText = gross.toFixed(2); profitEl.innerText = profit.toFixed(2);
+            });
+        });
+        async function saveMarginsToDB() {
+            const btn = document.getElementById('saveBtn'); btn.innerText = '⏳...';
+            const updates = Array.from(document.querySelectorAll('tr.border-b')).map(row => {
+                const mI = row.querySelector('[data-type="margin"]'), lI = row.querySelector('[data-type="labor"]');
+                return mI ? { mode: API_MODE, profile: API_PROFILE, size: mI.getAttribute('data-size'), margin: parseFloat(mI.value) || 0, labor: parseFloat(lI.value) || 0 } : null;
+            }).filter(u => u);
+            try {
+                const res = await fetch('/save_margins', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ password: API_PASSWORD, updates: updates }) });
+                const d = await res.json(); if (d.success) { btn.innerText = '✅ OK'; setTimeout(() => btn.innerText = '💾 Zapisz Marże i Pracę', 2000); }
+            } catch (err) { alert('Błąd sieci'); }
+        }
+        {% endif %}
+    </script>
+</body>
+</html>
