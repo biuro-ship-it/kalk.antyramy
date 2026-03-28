@@ -3,6 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 import os
 import json
 import re
@@ -11,6 +12,17 @@ from typing import Optional
 from threading import Lock
 
 app = FastAPI()
+
+# Konfiguracja ścieżek
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_PATH = os.path.join(BASE_DIR, "..", "static")
+TEMPLATES_PATH = os.path.join(BASE_DIR, "..", "templates")
+
+# Montowanie folderu static (dla ikon w formacie .png)
+if os.path.exists(STATIC_PATH):
+    app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
+
+templates = Jinja2Templates(directory=TEMPLATES_PATH)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -21,10 +33,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "qwerty11") 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 creds_path = os.path.join(BASE_DIR, 'credentials.json')
-templates_path = os.path.join(BASE_DIR, "..", "templates")
-templates = Jinja2Templates(directory=templates_path)
 
 data_lock = Lock()
 CACHED_DATA = []
@@ -58,24 +67,32 @@ def fetch_data():
         LAST_ERROR = None
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         env_creds = os.environ.get("GOOGLE_CREDENTIALS")
-        if env_creds: creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope)
-        else: creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        if env_creds: 
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope)
+        else: 
+            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+        
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
         data = wb.sheet1.get_all_values()
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
-        try: ws_wyjatki = wb.worksheet("Wyjatki_Marze")
+        
+        try: 
+            ws_wyjatki = wb.worksheet("Wyjatki_Marze")
         except: 
             ws_wyjatki = wb.add_worksheet(title="Wyjatki_Marze", rows=100, cols=5)
             ws_wyjatki.append_row(["Tryb", "Produkt", "Format", "Marza", "Robocizna"])
+        
         wyjatki_data = ws_wyjatki.get_all_values()
         temp_wyjatki = {f"{r[0]}_{r[1]}_{r[2]}": {"m": clean_val(r[3]), "l": clean_val(r[4]) if len(r) >= 5 else None} for r in wyjatki_data[1:] if len(r) >= 3}
+        
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
             CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
             PROFILES_MAP = {p.get("nazwa"): p for p in CACHED_DATA if p.get("nazwa")}
             MARGIN_EXCEPTIONS = temp_wyjatki
+            
     except Exception as e:
         LAST_ERROR = f"Błąd Google: {str(e)}"
 
@@ -113,16 +130,20 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     if not profile: return RedirectResponse(url="/", status_code=303)
     przekroj_img = profile.get('link_zdjecie', '') if not is_antyrama else ''
     description = profile.get('Opis_Dodatkowy', '') if not is_antyrama else ''
+    
     def get_smart_val(key):
         val_str = profile.get(key, "").strip() if not is_antyrama else ""
         return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
+    
     s_width, s_price = clean_val(profile.get('szerokosc_listwy', 0)), clean_val(profile.get('cena_zakupu_mb', 0))
     front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)) if is_pleksa else get_smart_val('cena_szkla_m2')
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
+    
     m_key = 'marza_anty_hurt' if (is_antyrama and mode=="wholesale") else ('marza_anty_detal' if is_antyrama else ('marza_alu_hurt' if (is_alu and mode=="wholesale") else ('marza_alu_detal' if is_alu else ('marza_hurt' if mode=="wholesale" else 'marza'))))
     base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0))
     label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
+    
     results = []
     for name, config in FORMATS_CONFIG.items():
         w, h, s_cat, p_cat, s_count, z_count = config
@@ -131,13 +152,18 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         if is_antyrama: c_surowiec += (s_count * clip_p) + (z_count * hook_p)
         elif is_alu: c_surowiec += (len_m * s_price) + alu_kit_p
         else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0)
+        
         if with_pp: c_surowiec += (area_m2 * pp_p)
+        
         base_labor = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
         saved_data = MARGIN_EXCEPTIONS.get(f"{mode}_{label}_{name}", {})
-        active_margin = saved_data.get("m", base_margin); active_labor = saved_data.get("l", base_labor) if saved_data.get("l") is not None else base_labor
+        active_margin = saved_data.get("m", base_margin)
+        active_labor = saved_data.get("l", base_labor) if saved_data.get("l") is not None else base_labor
+        
         total_cost = c_surowiec + active_labor
-        net = total_cost / (1 - (active_margin / 100))
+        net = total_cost / (1 - (active_margin / 100)) if (1 - (active_margin / 100)) != 0 else total_cost
         results.append({"size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}", "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}", "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"})
+        
     return templates.TemplateResponse(request=request, name="index.html", context={
         "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
         "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description
@@ -154,7 +180,6 @@ async def save_margins(request: Request):
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
         
-        # 1. Zapis marż i pracy (Wyjątki)
         ws = wb.worksheet("Wyjatki_Marze")
         all_data = ws.get_all_values()
         header = ["Tryb", "Produkt", "Format", "Marza", "Robocizna"]
@@ -163,7 +188,6 @@ async def save_margins(request: Request):
             existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
         ws.clear(); ws.update(values=[header] + list(existing.values()), range_name='A1')
 
-        # 2. Zapis zdjęcia i opisu (Główna baza)
         if data.get("profile_raw_name"):
             main_ws = wb.sheet1
             main_rows = main_ws.get_all_values()
@@ -176,8 +200,12 @@ async def save_margins(request: Request):
                         main_ws.update_cell(i, img_col, data.get("new_img", ""))
                         main_ws.update_cell(i, desc_col, data.get("new_desc", ""))
                         break
-            except: pass # Jeśli nie ma kolumn, pomiń
+            except: pass
 
         fetch_data()
         return JSONResponse({"success": True})
     except Exception as e: return JSONResponse({"success": False, "error": str(e)})
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

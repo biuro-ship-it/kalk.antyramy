@@ -3,4 +3,5 @@ uvicorn
 gspread
 oauth2client
 jinja2
+aiofiles
 python-multipart

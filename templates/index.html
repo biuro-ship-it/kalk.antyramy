@@ -34,7 +34,10 @@
         <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <img src="https://godek.eu/upload/elogo6.jpg" class="h-8 w-8 rounded-md shadow-sm">
-                <h1 class="text-sm font-black uppercase tracking-widest text-slate-700">Antyramy.eu</h1>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                    <h1 class="text-sm font-black uppercase tracking-widest text-slate-700">Antyramy.eu</h1>
+                    <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full shadow-sm">tel. 500 601 601</span>
+                </div>
             </div>
             <form action="/refresh" method="post"><button type="submit" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors">🔄 Odśwież Baze</button></form>
         </div>
@@ -48,7 +51,21 @@
                         <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">1. Produkt</label>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {% for val, label, icon in [('drewno', 'Drewno', '🪵'), ('plastik', 'Plastik', '🪟'), ('alu', 'Aluminium', '⛓️'), ('antyrama', 'Antyrama', '🖼️')] %}
-                            <label><input type="radio" name="main_category" value="{{ val }}" class="sr-only cat-radio" {{ 'checked' if main_category == val or (not main_category and val == 'drewno') }}><div class="option-tile bg-white p-4 rounded-xl text-center"><span class="block text-2xl mb-1">{{ icon }}</span><span class="block text-[10px] font-black uppercase text-slate-600">{{ label }}</span></div></label>
+                            <label>
+                                <input type="radio" name="main_category" value="{{ val }}" class="sr-only cat-radio" {{ 'checked' if main_category == val or (not main_category and val == 'drewno') }}>
+                                <div class="option-tile bg-white p-4 rounded-xl text-center">
+                                    <div class="h-8 flex items-center justify-center mb-1">
+                                        {% if val == 'plastik' %}
+                                            <img src="/static/icons/plastik.png" class="h-8 w-8 object-contain" alt="Plastik">
+                                        {% elif val == 'alu' %}
+                                            <img src="/static/icons/aluminum.png" class="h-8 w-8 object-contain" alt="Aluminium">
+                                        {% else %}
+                                            <span class="block text-2xl">{{ icon }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <span class="block text-[10px] font-black uppercase text-slate-600">{{ label }}</span>
+                                </div>
+                            </label>
                             {% endfor %}
                         </div>
                     </div>
