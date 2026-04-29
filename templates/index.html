@@ -29,21 +29,24 @@
         input[type="radio"]:checked + .option-tile { border-color: #2563eb; background-color: #eff6ff; }
     </style>
 </head>
-<body class="text-slate-900 min-h-screen">
-    <nav class="bg-white border-b border-slate-200 py-4 mb-6 no-print shadow-sm">
+<body class="text-slate-900 min-h-screen flex flex-col">
+    <nav class="bg-white border-b border-slate-200 py-4 no-print shadow-sm">
         <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <img src="https://godek.eu/upload/elogo6.jpg" class="h-8 w-8 rounded-md shadow-sm">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:gap-4">
                     <h1 class="text-sm font-black uppercase tracking-widest text-slate-700">Antyramy.eu</h1>
-                    <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full shadow-sm">tel. 500 601 601</span>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">tel. 500 601 601</span>
+                        <a href="mailto:biuro@antyramy.eu" class="text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full shadow-sm hover:bg-slate-100 transition-colors whitespace-nowrap">biuro@antyramy.eu</a>
+                    </div>
                 </div>
             </div>
             <form action="/refresh" method="post"><button type="submit" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors">🔄 Odśwież Baze</button></form>
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-4 pb-20">
+    <main class="max-w-6xl mx-auto px-4 pt-8 pb-12 flex-grow w-full">
         <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 no-print mb-8">
             <form action="/calculate" method="post" class="space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -78,7 +81,14 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-6 border-t">
                     <div class="md:col-span-4" id="profileContainer"><label class="block text-[10px] font-black text-slate-400 mb-2">3. Kod / Kolor</label><select name="profile_name" id="profileSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black uppercase text-sm"></select></div>
-                    <div class="md:col-span-3"><label class="block text-[10px] font-black text-slate-400 mb-2">4. Tryb & PP</label><select name="mode" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-black text-sm mb-2"><option value="retail" {{ 'selected' if mode == 'retail' }}>DETAL</option><option value="wholesale" {{ 'selected' if mode == 'wholesale' }}>HURT</option></select><label class="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer"><input type="checkbox" name="with_pp" value="true" class="w-4 h-4 text-blue-600 rounded" {{ 'checked' if with_pp }}><span class="text-[10px] font-black text-slate-600 uppercase">Passe-partout</span></label></div>
+                    <div class="md:col-span-3">
+                        <label class="block text-[10px] font-black text-slate-400 mb-2">4. Dodatki</label>
+                        <input type="hidden" name="mode" value="wholesale">
+                        <label class="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+                            <input type="checkbox" name="with_pp" value="true" class="w-4 h-4 text-blue-600 rounded" {{ 'checked' if with_pp }}>
+                            <span class="text-[10px] font-black text-slate-600 uppercase">Passe-partout</span>
+                        </label>
+                    </div>
                     <div class="md:col-span-3"><label class="block text-[10px] font-black text-slate-400 mb-2">5. Hasło Admin</label><input type="password" name="password" placeholder="****" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black"></div>
                     <div class="md:col-span-2 flex items-end"><button type="submit" class="w-full bg-blue-600 text-white font-black py-3.5 rounded-xl uppercase text-[10px] shadow-lg">Oblicz</button></div>
                 </div>
@@ -89,7 +99,7 @@
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 print:block">
             <div class="xl:col-span-2 bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden print-card">
                 <div class="p-6 bg-slate-900 text-white flex justify-between items-center print-header">
-                    <div><p class="text-[9px] font-black uppercase opacity-60 mb-1">Karta produktu</p><h2 class="text-2xl font-black uppercase">{{ profile }}</h2></div>
+                    <div><p class="text-[9px] font-black uppercase opacity-60 mb-1">Karta produktu (HURT)</p><h2 class="text-2xl font-black uppercase">{{ profile }}</h2></div>
                     <button onclick="window.print()" class="no-print bg-white text-slate-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-slate-100">🖨️ Drukuj</button>
                 </div>
                 <table class="w-full">
@@ -139,6 +149,48 @@
         {% endif %}
     </main>
 
+    <footer class="bg-white border-t border-slate-200 py-10 no-print">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="space-y-3">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Współpraca</p>
+                    <p class="text-sm text-slate-600 leading-relaxed">
+                        Prowadzisz firmę? Zapraszamy do naszego dedykowanego systemu zamówień B2B.
+                    </p>
+                    <a href="https://b2b.antyramy.eu" target="_blank" class="inline-flex items-center text-blue-600 font-black text-sm hover:underline">
+                        b2b.antyramy.eu 
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </a>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Kontakt</p>
+                    <p class="text-sm text-slate-600">
+                        Tarnów, Małopolska<br>
+                        ul. Monopolowa 11<br>
+                        Dni robocze: 9:00 - 16:00
+                    </p>
+                    <p class="text-sm font-bold text-slate-700">tel. 500 601 601</p>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Informacja</p>
+                    <p class="text-[11px] text-slate-500 leading-relaxed italic">
+                        Przedstawione wyceny mają charakter informacyjny i nie stanowią oferty handlowej w rozumieniu Art.66 par.1 Kodeksu Cywilnego.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-10 pt-6 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <img src="https://godek.eu/upload/elogo6.jpg" class="h-5 w-5 grayscale opacity-50">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2026 Antyramy.eu</span>
+                </div>
+                <div class="text-[10px] font-bold text-slate-300 uppercase">Produkcja ramek i antyram na wymiar</div>
+            </div>
+        </div>
+    </footer>
+
     <script>
         const allProfiles = [{% for p in profiles %}{ nazwa: "{{ p.nazwa }}", kat: "{{ p.kat }}" },{% endfor %}];
         const currentProfileSelection = "{{ selected_profile|default('') }}";
@@ -158,7 +210,7 @@
         document.addEventListener('DOMContentLoaded', filterProfiles);
 
         {% if is_admin %}
-        const API_MODE = "{{ mode }}", API_PROFILE = "{{ profile }}", API_RAW_NAME = "{{ profile_raw_name }}", API_PASSWORD = "{{ admin_password }}";
+        const API_MODE = "wholesale", API_PROFILE = "{{ profile }}", API_RAW_NAME = "{{ profile_raw_name }}", API_PASSWORD = "{{ admin_password }}";
         document.querySelectorAll('.dynamic-calc').forEach(input => {
             input.addEventListener('input', function() {
                 const row = this.closest('tr');

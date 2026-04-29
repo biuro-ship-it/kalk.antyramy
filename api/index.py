@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_PATH = os.path.join(BASE_DIR, "..", "static")
 TEMPLATES_PATH = os.path.join(BASE_DIR, "..", "templates")
 
-# Montowanie folderu static (dla ikon w formacie .png)
+# Montowanie folderu static
 if os.path.exists(STATIC_PATH):
     app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 
@@ -103,7 +103,7 @@ async def startup_event():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "mode": "wholesale", "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
 
 @app.get("/manifest.json")
 async def manifest():
@@ -120,7 +120,7 @@ async def refresh():
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/calculate", response_class=HTMLResponse)
-async def calculate(request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("retail"), password: Optional[str] = Form(None), main_category: str = Form("drewno"), front_type: str = Form("szklo"), with_pp: Optional[str] = Form(None)):
+async def calculate(request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("wholesale"), password: Optional[str] = Form(None), main_category: str = Form("drewno"), front_type: str = Form("szklo"), with_pp: Optional[str] = Form(None)):
     if not CACHED_DATA: fetch_data()
     is_admin = (password == ADMIN_PASSWORD)
     is_antyrama = (main_category == "antyrama")
