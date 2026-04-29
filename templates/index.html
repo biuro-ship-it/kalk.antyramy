@@ -205,17 +205,13 @@
             } else {
                 container.style.display = 'block'; 
                 select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
-                
-                // POPRAWKA FILTRA: Pokazujemy tylko te, które mają DOKŁADNIE taką samą kategorię
                 const filtered = allProfiles.filter(p => p.kat === selectedCat);
-                
                 filtered.forEach(p => { 
                     const opt = document.createElement('option'); 
                     opt.value = opt.text = p.nazwa; 
                     if (p.nazwa === currentProfileSelection) opt.selected = true; 
                     select.appendChild(opt); 
                 });
-                
                 if (select.selectedIndex <= 0 && filtered.length > 0) select.selectedIndex = 1;
             }
         }

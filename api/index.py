@@ -89,7 +89,6 @@ def fetch_data():
         
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
-            # Kluczowa zmiana: przypisujemy "brak" jeśli kategoria jest pusta w arkuszu
             CACHED_DATA = []
             for r in rows:
                 name = r.get('nazwa', '').strip()
@@ -124,9 +123,12 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     is_admin = (password == ADMIN_PASSWORD)
     is_antyrama = (main_category == "antyrama")
     is_alu = (main_category == "alu")
+    is_plastik = (main_category == "plastik")
     is_pleksa = (front_type == "pleksa")
+    
     profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
     if not profile: return RedirectResponse(url="/", status_code=303)
+    
     przekroj_img = profile.get('link_zdjecie', '') if not is_antyrama else ''
     description = profile.get('Opis_Dodatkowy', '') if not is_antyrama else ''
     
@@ -139,9 +141,18 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
     
-    if is_antyrama: m_key = 'marza_anty_hurt'
-    elif is_alu: m_key = 'marza_alu_hurt'
-    else: m_key = 'marza_hurt'
+    # ZAAWANSOWANA LOGIKA WYBORU MARŻY (Uwzględnia pleksę w antyramach)
+    if is_antyrama: 
+        if is_pleksa:
+            m_key = 'marza_pleksa_hurt'
+        else:
+            m_key = 'marza_anty_hurt'
+    elif is_alu: 
+        m_key = 'marza_alu_hurt'
+    elif is_plastik:
+        m_key = 'marza_TS'
+    else: 
+        m_key = 'marza_hurt'
     
     base_margin = clean_val(profile.get(m_key, 0)) or clean_val(GLOBAL_SETTINGS.get(m_key, 0))
     label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
