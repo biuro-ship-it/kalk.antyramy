@@ -194,18 +194,32 @@
     <script>
         const allProfiles = [{% for p in profiles %}{ nazwa: "{{ p.nazwa }}", kat: "{{ p.kat }}" },{% endfor %}];
         const currentProfileSelection = "{{ selected_profile|default('') }}";
+        
         function filterProfiles() {
             const selectedCat = document.querySelector('.cat-radio:checked').value;
             const container = document.getElementById('profileContainer');
             const select = document.getElementById('profileSelect');
-            if (selectedCat === 'antyrama') { container.style.display = 'none'; } 
-            else {
-                container.style.display = 'block'; select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
-                const filtered = allProfiles.filter(p => p.kat === selectedCat || (!p.kat && selectedCat === 'drewno'));
-                filtered.forEach(p => { const opt = document.createElement('option'); opt.value = opt.text = p.nazwa; if (p.nazwa === currentProfileSelection) opt.selected = true; select.appendChild(opt); });
+            
+            if (selectedCat === 'antyrama') { 
+                container.style.display = 'none'; 
+            } else {
+                container.style.display = 'block'; 
+                select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
+                
+                // POPRAWKA FILTRA: Pokazujemy tylko te, które mają DOKŁADNIE taką samą kategorię
+                const filtered = allProfiles.filter(p => p.kat === selectedCat);
+                
+                filtered.forEach(p => { 
+                    const opt = document.createElement('option'); 
+                    opt.value = opt.text = p.nazwa; 
+                    if (p.nazwa === currentProfileSelection) opt.selected = true; 
+                    select.appendChild(opt); 
+                });
+                
                 if (select.selectedIndex <= 0 && filtered.length > 0) select.selectedIndex = 1;
             }
         }
+        
         document.querySelectorAll('.cat-radio').forEach(r => r.addEventListener('change', filterProfiles));
         document.addEventListener('DOMContentLoaded', filterProfiles);
 

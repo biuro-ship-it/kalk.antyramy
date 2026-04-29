@@ -18,7 +18,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_PATH = os.path.join(BASE_DIR, "..", "static")
 TEMPLATES_PATH = os.path.join(BASE_DIR, "..", "templates")
 
-# Montowanie folderu static
 if os.path.exists(STATIC_PATH):
     app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 
@@ -75,6 +74,7 @@ def fetch_data():
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
         data = wb.sheet1.get_all_values()
+        if not data: return
         headers = [h.strip() for h in data[0]]
         rows = [dict(zip(headers, r)) for r in data[1:]]
         
@@ -89,7 +89,15 @@ def fetch_data():
         
         with data_lock:
             GLOBAL_SETTINGS = next((r for r in rows if r.get('nazwa', '').lower() == 'ustawienia'), {})
-            CACHED_DATA = [r for r in rows if r.get('nazwa', '') != '' and r.get('nazwa', '').lower() != 'ustawienia']
+            # Kluczowa zmiana: przypisujemy "brak" jeśli kategoria jest pusta w arkuszu
+            CACHED_DATA = []
+            for r in rows:
+                name = r.get('nazwa', '').strip()
+                if name != '' and name.lower() != 'ustawienia':
+                    kat = r.get('kategoria', '').strip().lower()
+                    if not kat: r['kategoria'] = 'brak'
+                    CACHED_DATA.append(r)
+            
             PROFILES_MAP = {p.get("nazwa"): p for p in CACHED_DATA if p.get("nazwa")}
             MARGIN_EXCEPTIONS = temp_wyjatki
             
@@ -103,16 +111,7 @@ async def startup_event():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if not CACHED_DATA: fetch_data()
-    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "mode": "wholesale", "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
-
-@app.get("/manifest.json")
-async def manifest():
-    content = {
-        "short_name": "Antyramy", "name": "Antyramy.eu Kalkulator",
-        "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
-        "start_url": "/", "display": "standalone", "theme_color": "#0f172a", "background_color": "#ffffff"
-    }
-    return JSONResponse(content=content, headers={"Content-Type": "application/manifest+json"})
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "mode": "wholesale", "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
 
 @app.post("/refresh")
 async def refresh():
@@ -140,8 +139,11 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
     pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
     
-    m_key = 'marza_anty_hurt' if (is_antyrama and mode=="wholesale") else ('marza_anty_detal' if is_antyrama else ('marza_alu_hurt' if (is_alu and mode=="wholesale") else ('marza_alu_detal' if is_alu else ('marza_hurt' if mode=="wholesale" else 'marza'))))
-    base_margin = clean_val(GLOBAL_SETTINGS.get(m_key, 0)) or clean_val(profile.get(m_key, 0))
+    if is_antyrama: m_key = 'marza_anty_hurt'
+    elif is_alu: m_key = 'marza_alu_hurt'
+    else: m_key = 'marza_hurt'
+    
+    base_margin = clean_val(profile.get(m_key, 0)) or clean_val(GLOBAL_SETTINGS.get(m_key, 0))
     label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
     
     results = []
@@ -161,11 +163,13 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         active_labor = saved_data.get("l", base_labor) if saved_data.get("l") is not None else base_labor
         
         total_cost = c_surowiec + active_labor
-        net = total_cost / (1 - (active_margin / 100)) if (1 - (active_margin / 100)) != 0 else total_cost
+        div = (1 - (active_margin / 100))
+        net = total_cost / div if div != 0 else total_cost
+        
         results.append({"size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}", "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}", "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"})
         
     return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'drewno').strip().lower()} for item in CACHED_DATA if item.get('nazwa')], 
+        "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], 
         "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description
     })
 
