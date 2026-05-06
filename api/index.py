@@ -8,6 +8,7 @@ import os
 import json
 import re
 import traceback
+import hashlib
 from typing import Optional
 from threading import Lock
 
@@ -23,16 +24,22 @@ if os.path.exists(STATIC_PATH):
 
 templates = Jinja2Templates(directory=TEMPLATES_PATH)
 
+# BEZPIECZEŃSTWO: Ukrywamy szczegóły błędu przed użytkownikiem (wymóg z audytu)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    error_details = traceback.format_exc()
+    print(f"Błąd serwera: {str(exc)}") # Logujemy tylko w konsoli (widoczne dla Ciebie na Vercel)
     return HTMLResponse(
-        content=f"<div style='padding:20px; font-family:monospace; color:#b91c1c; background:#fef2f2;'><pre>{error_details}</pre></div>",
+        content="<div style='padding:20px; font-family:sans-serif; color:#b91c1c; background:#fef2f2; border-radius: 8px; text-align: center;'><h3>Wystąpił błąd systemu.</h3><p>Spróbuj ponownie lub skontaktuj się z obsługą.</p></div>",
         status_code=500
     )
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "qwerty11") 
+# BEZPIECZEŃSTWO: Brak hasła "na sztywno" w kodzie
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "brak_hasla_ustaw_w_vercel") 
 creds_path = os.path.join(BASE_DIR, 'credentials.json')
+
+# Funkcja szyfrująca ciasteczko logowania
+def get_auth_token():
+    return hashlib.sha256((ADMIN_PASSWORD + "antyramy_secure_salt").encode()).hexdigest()
 
 data_lock = Lock()
 CACHED_DATA = []
@@ -101,7 +108,7 @@ def fetch_data():
             MARGIN_EXCEPTIONS = temp_wyjatki
             
     except Exception as e:
-        LAST_ERROR = f"Błąd Google: {str(e)}"
+        LAST_ERROR = f"Błąd Google: Brak dostępu do arkusza lub błędne klucze."
 
 @app.on_event("startup")
 async def startup_event():
@@ -112,7 +119,6 @@ async def home(request: Request):
     if not CACHED_DATA: fetch_data()
     return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "mode": "wholesale", "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
 
-# Przywrócona obsługa manifestu
 @app.get("/manifest.json")
 async def manifest():
     content = {
@@ -130,7 +136,11 @@ async def refresh():
 @app.post("/calculate", response_class=HTMLResponse)
 async def calculate(request: Request, profile_name: Optional[str] = Form(None), mode: str = Form("wholesale"), password: Optional[str] = Form(None), main_category: str = Form("drewno"), front_type: str = Form("szklo"), with_pp: Optional[str] = Form(None)):
     if not CACHED_DATA: fetch_data()
-    is_admin = (password == ADMIN_PASSWORD)
+    
+    # Obsługa autoryzacji admina - sprawdzamy hasło z formularza LUB z wcześniej zadanego ciastka
+    auth_cookie = request.cookies.get("admin_auth")
+    is_admin = (password == ADMIN_PASSWORD) or (auth_cookie == get_auth_token())
+    
     is_antyrama = (main_category == "antyrama")
     is_alu = (main_category == "alu")
     is_plastik = (main_category == "plastik")
@@ -206,16 +216,32 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         
         results.append({"size": name, "net": f"{net:.2f}", "gross": f"{(net * (1 + vat/100)):.2f}", "surowiec": f"{c_surowiec:.2f}", "labor": f"{active_labor:.2f}", "profit": f"{(net - total_cost):.2f}", "active_margin": f"{active_margin:.1f}"})
         
-    return templates.TemplateResponse(request=request, name="index.html", context={
-        "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], 
-        "main_category": main_category, "front_type": front_type, "with_pp": with_pp, "selected_profile": profile_name, "vat": vat, "admin_password": password if is_admin else None, "przekroj_img": przekroj_img, "description": description
+    # Tworzymy odpowiedź
+    response = templates.TemplateResponse(request=request, name="index.html", context={
+        "request": request, "results": results, "profile": label, "profile_raw_name": profile.get("nazwa"), 
+        "mode": mode, "is_admin": is_admin, "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], 
+        "main_category": main_category, "front_type": front_type, "with_pp": with_pp, 
+        "selected_profile": profile_name, "vat": vat, 
+        # BEZPIECZEŃSTWO: Nie wstrzykujemy już "admin_password" do HTML!
+        "przekroj_img": przekroj_img, "description": description
     })
+    
+    # BEZPIECZEŃSTWO: Ustawiamy bezpieczne ciasteczko logowania na 1 godzinę (3600 sekund)
+    if is_admin:
+        response.set_cookie(key="admin_auth", value=get_auth_token(), httponly=True, max_age=3600, samesite="Lax")
+    
+    return response
 
 @app.post("/save_margins")
 async def save_margins(request: Request):
     try:
+        # BEZPIECZEŃSTWO: Weryfikacja tożsamości odbywa się teraz przez zaszyfrowane ciasteczko
+        auth_cookie = request.cookies.get("admin_auth")
+        if auth_cookie != get_auth_token():
+            return JSONResponse({"success": False, "error": "Brak autoryzacji. Zaloguj się ponownie wpisując hasło i klikając Oblicz."})
+            
         data = await request.json()
-        if data.get("password") != ADMIN_PASSWORD: return JSONResponse({"success": False})
+        
         env_creds = os.environ.get("GOOGLE_CREDENTIALS")
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope) if env_creds else ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
