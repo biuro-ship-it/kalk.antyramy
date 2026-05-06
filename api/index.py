@@ -112,6 +112,16 @@ async def home(request: Request):
     if not CACHED_DATA: fetch_data()
     return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "mode": "wholesale", "profiles": [{"nazwa": item.get('nazwa'), "kat": item.get('kategoria', 'brak')} for item in CACHED_DATA if item.get('nazwa')], "error": LAST_ERROR})
 
+# Przywrócona obsługa manifestu
+@app.get("/manifest.json")
+async def manifest():
+    content = {
+        "short_name": "Antyramy", "name": "Antyramy.eu Kalkulator",
+        "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
+        "start_url": "/", "display": "standalone", "theme_color": "#0f172a", "background_color": "#ffffff"
+    }
+    return JSONResponse(content=content, headers={"Content-Type": "application/manifest+json"})
+
 @app.post("/refresh")
 async def refresh():
     fetch_data()
@@ -125,6 +135,7 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
     is_alu = (main_category == "alu")
     is_plastik = (main_category == "plastik")
     is_pleksa = (front_type == "pleksa")
+    is_sama_rama = (front_type == "sama_rama")
     
     profile = {"nazwa": "ANTYRAMA", "szerokosc_listwy": "0", "cena_zakupu_mb": "0"} if is_antyrama else PROFILES_MAP.get(profile_name)
     if not profile: return RedirectResponse(url="/", status_code=303)
@@ -137,16 +148,21 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         return clean_val(GLOBAL_SETTINGS.get(key, 0)) if val_str in ["", "0", "zmienna"] else clean_val(val_str)
     
     s_width, s_price = clean_val(profile.get('szerokosc_listwy', 0)), clean_val(profile.get('cena_zakupu_mb', 0))
-    front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)) if is_pleksa else get_smart_val('cena_szkla_m2')
-    back_p, clip_p, hook_p = get_smart_val('cena_tylow_m2'), clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0)), clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
-    pp_p, alu_kit_p, vat = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0)), clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0)), get_smart_val('vat') or 23
     
-    # ZAAWANSOWANA LOGIKA WYBORU MARŻY (Uwzględnia pleksę w antyramach)
+    if is_sama_rama:
+        front_p = back_p = clip_p = hook_p = alu_kit_p = 0
+    else:
+        front_p = clean_val(GLOBAL_SETTINGS.get('cena_pleksy_m2', 0)) if is_pleksa else get_smart_val('cena_szkla_m2')
+        back_p = get_smart_val('cena_tylow_m2')
+        clip_p = clean_val(GLOBAL_SETTINGS.get('cena_spinki', 0))
+        hook_p = clean_val(GLOBAL_SETTINGS.get('cena_zaczep', 0))
+        alu_kit_p = clean_val(GLOBAL_SETTINGS.get('montaz_alu', 0))
+
+    pp_p = clean_val(GLOBAL_SETTINGS.get('cena_pp_m2', 0))
+    vat = get_smart_val('vat') or 23
+    
     if is_antyrama: 
-        if is_pleksa:
-            m_key = 'marza_pleksa_hurt'
-        else:
-            m_key = 'marza_anty_hurt'
+        m_key = 'marza_pleksa_hurt' if is_pleksa else 'marza_anty_hurt'
     elif is_alu: 
         m_key = 'marza_alu_hurt'
     elif is_plastik:
@@ -155,18 +171,29 @@ async def calculate(request: Request, profile_name: Optional[str] = Form(None), 
         m_key = 'marza_hurt'
     
     base_margin = clean_val(profile.get(m_key, 0)) or clean_val(GLOBAL_SETTINGS.get(m_key, 0))
-    label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
+    
+    if is_sama_rama:
+        label = f"SAMA RAMA: {profile['nazwa']}"
+    else:
+        label = f"ANTYRAMA {front_type.upper()}" if is_antyrama else (f"ALU: {profile['nazwa']}" if is_alu else f"RAMA {main_category.upper()}: {profile['nazwa']}")
     
     results = []
     for name, config in FORMATS_CONFIG.items():
         w, h, s_cat, p_cat, s_count, z_count = config
         len_m, area_m2 = (2*(w+h) + FRAME_MARGIN*s_width)/100, (w*h)/10000
         c_surowiec = (area_m2 * front_p) + (area_m2 * back_p)
-        if is_antyrama: c_surowiec += (s_count * clip_p) + (z_count * hook_p)
-        elif is_alu: c_surowiec += (len_m * s_price) + alu_kit_p
-        else: c_surowiec += (len_m * s_price) + (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0)
         
-        if with_pp: c_surowiec += (area_m2 * pp_p)
+        if is_antyrama: 
+            if not is_sama_rama: c_surowiec += (s_count * clip_p) + (z_count * hook_p)
+            else: c_surowiec = 0
+        elif is_alu: 
+            c_surowiec += (len_m * s_price) + alu_kit_p
+        else: 
+            c_surowiec += (len_m * s_price)
+            if not is_sama_rama:
+                c_surowiec += (get_smart_val(f'cena_podporka_{s_cat}') if s_cat else 0)
+        
+        if with_pp and not is_sama_rama: c_surowiec += (area_m2 * pp_p)
         
         base_labor = 0 if is_antyrama else (get_smart_val(f'koszt_prod_{p_cat}') if p_cat else 0)
         saved_data = MARGIN_EXCEPTIONS.get(f"{mode}_{label}_{name}", {})
@@ -194,7 +221,6 @@ async def save_margins(request: Request):
         creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(env_creds), scope) if env_creds else ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
         client = gspread.authorize(creds)
         wb = client.open("Baza Ramek")
-        
         ws = wb.worksheet("Wyjatki_Marze")
         all_data = ws.get_all_values()
         header = ["Tryb", "Produkt", "Format", "Marza", "Robocizna"]
@@ -202,7 +228,6 @@ async def save_margins(request: Request):
         for u in data.get("updates", []): 
             existing[f"{u['mode']}_{u['profile']}_{u['size']}"] = [u['mode'], u['profile'], u['size'], str(u['margin']), str(u['labor'])]
         ws.clear(); ws.update(values=[header] + list(existing.values()), range_name='A1')
-
         if data.get("profile_raw_name"):
             main_ws = wb.sheet1
             main_rows = main_ws.get_all_values()
@@ -216,7 +241,6 @@ async def save_margins(request: Request):
                         main_ws.update_cell(i, desc_col, data.get("new_desc", ""))
                         break
             except: pass
-
         fetch_data()
         return JSONResponse({"success": True})
     except Exception as e: return JSONResponse({"success": False, "error": str(e)})

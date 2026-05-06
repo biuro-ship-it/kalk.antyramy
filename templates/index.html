@@ -50,7 +50,7 @@
         <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 no-print mb-8">
             <form action="/calculate" method="post" class="space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <div class="lg:col-span-8">
+                    <div class="lg:col-span-7">
                         <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">1. Produkt</label>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {% for val, label, icon in [('drewno', 'Drewno', '🪵'), ('plastik', 'Plastik', '🪟'), ('alu', 'Aluminium', '⛓️'), ('antyrama', 'Antyrama', '🖼️')] %}
@@ -72,10 +72,17 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="lg:col-span-4">
+                    <div class="lg:col-span-5">
                         <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">2. Wypełnienie</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            {% for val, label in [('szklo', 'Szkło'), ('pleksa', 'Pleksa')] %}<label><input type="radio" name="front_type" value="{{ val }}" class="sr-only" {{ 'checked' if front_type == val or (not front_type and val == 'szklo') }}><div class="option-tile bg-white p-4 rounded-xl text-center flex items-center justify-center h-[76px]"><span class="text-[10px] font-black uppercase text-slate-700">{{ label }}</span></div></label>{% endfor %}
+                        <div class="grid grid-cols-3 gap-3">
+                            {% for val, label in [('szklo', 'Szkło'), ('pleksa', 'Pleksa'), ('sama_rama', 'Sama rama')] %}
+                            <label>
+                                <input type="radio" name="front_type" value="{{ val }}" class="sr-only fill-radio" {{ 'checked' if front_type == val or (not front_type and val == 'szklo') }}>
+                                <div class="option-tile bg-white p-4 rounded-xl text-center flex items-center justify-center h-[76px]">
+                                    <span class="text-[10px] font-black uppercase text-slate-700 leading-tight">{{ label }}</span>
+                                </div>
+                            </label>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
@@ -84,7 +91,7 @@
                     <div class="md:col-span-3">
                         <label class="block text-[10px] font-black text-slate-400 mb-2">4. Dodatki</label>
                         <input type="hidden" name="mode" value="wholesale">
-                        <label class="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+                        <label id="pp_label" class="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
                             <input type="checkbox" name="with_pp" value="true" class="w-4 h-4 text-blue-600 rounded" {{ 'checked' if with_pp }}>
                             <span class="text-[10px] font-black text-slate-600 uppercase">Passe-partout</span>
                         </label>
@@ -123,27 +130,14 @@
 
             <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-200 no-print space-y-8 flex flex-col">
                 <p class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest text-center">Informacje o produkcie</p>
-                
                 {% if is_admin %}
                 <div class="space-y-4">
-                    <div>
-                        <label class="text-[9px] font-black text-blue-600 uppercase">Link do zdjęcia (.jpg / .png)</label>
-                        <input type="text" id="admin_img_url" value="{{ przekroj_img }}" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black text-blue-600 uppercase">Opis (kolory, czas dostawy)</label>
-                        <textarea id="admin_description" rows="4" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1">{{ description }}</textarea>
-                    </div>
+                    <div><label class="text-[9px] font-black text-blue-600 uppercase">Link do zdjęcia</label><input type="text" id="admin_img_url" value="{{ przekroj_img }}" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1"></div>
+                    <div><label class="text-[9px] font-black text-blue-600 uppercase">Opis</label><textarea id="admin_description" rows="4" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1">{{ description }}</textarea></div>
                 </div>
                 {% endif %}
-
-                {% if przekroj_img and not is_admin %}
-                <img src="{{ przekroj_img }}" class="max-w-full h-auto rounded-2xl shadow-inner border bg-slate-50 p-2">
-                {% endif %}
-                
-                {% if description and not is_admin %}
-                <div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 text-slate-700 text-sm font-semibold whitespace-pre-line leading-relaxed">{{ description }}</div>
-                {% endif %}
+                {% if przekroj_img and not is_admin %}<img src="{{ przekroj_img }}" class="max-w-full h-auto rounded-2xl shadow-inner border bg-slate-50 p-2">{% endif %}
+                {% if description and not is_admin %}<div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 text-slate-700 text-sm font-semibold whitespace-pre-line leading-relaxed">{{ description }}</div>{% endif %}
             </div>
         </div>
         {% endif %}
@@ -154,39 +148,21 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div class="space-y-3">
                     <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Współpraca</p>
-                    <p class="text-sm text-slate-600 leading-relaxed">
-                        Prowadzisz firmę? Zapraszamy do naszego dedykowanego systemu zamówień B2B.
-                    </p>
-                    <a href="https://b2b.antyramy.eu" target="_blank" class="inline-flex items-center text-blue-600 font-black text-sm hover:underline">
-                        b2b.antyramy.eu 
-                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </a>
+                    <p class="text-sm text-slate-600 leading-relaxed">Prowadzisz firmę? Zapraszamy do naszego dedykowanego systemu zamówień B2B.</p>
+                    <a href="https://b2b.antyramy.eu" target="_blank" class="inline-flex items-center text-blue-600 font-black text-sm hover:underline">b2b.antyramy.eu <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></a>
                 </div>
-
                 <div class="space-y-3">
                     <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Kontakt</p>
-                    <p class="text-sm text-slate-600">
-                        Tarnów, Małopolska<br>
-                        ul. Monopolowa 11<br>
-                        Dni robocze: 9:00 - 16:00
-                    </p>
+                    <p class="text-sm text-slate-600">Tarnów, Małopolska<br>ul. Monopolowa 11<br>Dni robocze: 9:00 - 16:00</p>
                     <p class="text-sm font-bold text-slate-700">tel. 500 601 601</p>
                 </div>
-
                 <div class="space-y-3">
                     <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Informacja</p>
-                    <p class="text-[11px] text-slate-500 leading-relaxed italic">
-                        Przedstawione wyceny mają charakter informacyjny i nie stanowią oferty handlowej w rozumieniu Art.66 par.1 Kodeksu Cywilnego.
-                    </p>
+                    <p class="text-[11px] text-slate-500 leading-relaxed italic">Przedstawione wyceny mają charakter informacyjny i nie stanowią oferty handlowej w rozumieniu Art.66 par.1 Kodeksu Cywilnego.</p>
                 </div>
             </div>
-            
             <div class="mt-10 pt-6 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center gap-2">
-                    <img src="https://godek.eu/upload/elogo6.jpg" class="h-5 w-5 grayscale opacity-50">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2026 Antyramy.eu</span>
-                </div>
-                <div class="text-[10px] font-bold text-slate-300 uppercase">Produkcja ramek i antyram na wymiar</div>
+                <div class="flex items-center gap-2"><img src="https://godek.eu/upload/elogo6.jpg" class="h-5 w-5 grayscale opacity-50"><span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2026 Antyramy.eu</span></div>
             </div>
         </div>
     </footer>
@@ -199,16 +175,21 @@
             const selectedCat = document.querySelector('.cat-radio:checked').value;
             const container = document.getElementById('profileContainer');
             const select = document.getElementById('profileSelect');
+            const fillRadios = document.querySelectorAll('.fill-radio');
+            const ppLabel = document.getElementById('pp_label');
             
             if (selectedCat === 'antyrama') { 
                 container.style.display = 'none'; 
+                fillRadios.forEach(r => { if(r.value === 'sama_rama') r.closest('label').style.display = 'none'; });
+                ppLabel.style.display = 'none';
             } else {
                 container.style.display = 'block'; 
+                fillRadios.forEach(r => { r.closest('label').style.display = 'block'; });
+                ppLabel.style.display = 'flex';
                 select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
                 const filtered = allProfiles.filter(p => p.kat === selectedCat);
                 filtered.forEach(p => { 
-                    const opt = document.createElement('option'); 
-                    opt.value = opt.text = p.nazwa; 
+                    const opt = document.createElement('option'); opt.value = opt.text = p.nazwa; 
                     if (p.nazwa === currentProfileSelection) opt.selected = true; 
                     select.appendChild(opt); 
                 });
@@ -237,13 +218,7 @@
                 const mI = row.querySelector('[data-type="margin"]'), lI = row.querySelector('[data-type="labor"]');
                 return mI ? { mode: API_MODE, profile: API_PROFILE, size: mI.getAttribute('data-size'), margin: parseFloat(mI.value) || 0, labor: parseFloat(lI.value) || 0 } : null;
             }).filter(u => u);
-            const payload = {
-                password: API_PASSWORD, 
-                updates: updates,
-                profile_raw_name: API_RAW_NAME,
-                new_img: document.getElementById('admin_img_url').value,
-                new_desc: document.getElementById('admin_description').value
-            };
+            const payload = { password: API_PASSWORD, updates: updates, profile_raw_name: API_RAW_NAME, new_img: document.getElementById('admin_img_url').value, new_desc: document.getElementById('admin_description').value };
             try {
                 const res = await fetch('/save_margins', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const d = await res.json(); if (d.success) { btn.innerText = '✅ ZAPISANO!'; setTimeout(() => btn.innerText = '💾 Zapisz Wszystko', 2000); }
