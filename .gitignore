@@ -3,3 +3,7 @@ __pycache__/
 .env
 .vercel
 api/credentials.json
+
+# Sekcja info - blokujemy wszystko
+info*
+info/
