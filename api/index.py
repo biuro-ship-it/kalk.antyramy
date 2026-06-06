@@ -318,7 +318,7 @@ async def admin_login_post(request: Request, password: str = Form(...)):
         })
     token = make_session_token(password)
     response = RedirectResponse("/admin", status_code=303)
-    response.set_cookie("kalk_admin", token, httponly=True, max_age=7200, samesite="Lax")
+    response.set_cookie("kalk_admin", token, httponly=True, max_age=604800, samesite="Lax")  # 7 dni
     return response
 
 

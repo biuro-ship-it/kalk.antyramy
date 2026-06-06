@@ -402,11 +402,16 @@ async function saveMargins(){
       margin:parseFloat(inp.value)||0,labor:parseFloat(labor)||0});
   });
   try{
-    const res=await fetch('/api/save-margins',{method:'POST',
+    const res=await fetch('/api/save-margins',{method:'POST',credentials:'same-origin',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({updates,profile_id:PROFILE_ID,
         img_url:document.getElementById('adminImg')?.value||'',
         description:document.getElementById('adminDesc')?.value||''})});
+    if(res.status===403){
+      btn.textContent='🔒 Sesja wygasła — logowanie…';
+      setTimeout(()=>location.href='/admin/login',1500);
+      return;
+    }
     const d=await res.json();
     btn.textContent=d.ok?'✅ Zapisano!':'❌ Błąd';
   }catch{btn.textContent='❌ Błąd sieci';}
