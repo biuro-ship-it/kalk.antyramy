@@ -33,12 +33,20 @@ jobs:
             --exclude='.venv/' \
             --exclude='mockup-ui.html' \
             --exclude='.github/' \
-            ./ Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_html/
+            --exclude='static/' \
+            ./ Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_python/
+
+      - name: Deploy static files
+        run: |
+          rsync -avz --delete \
+            static/ \
+            Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_python/public/static/
 
       - name: Install dependencies & restart app
         run: |
           ssh Pluszek@s61.mydevil.net << 'EOF'
-            cd ~/domains/kalk.antyramy.eu/public_html
-            pip3 install -r requirements.txt --user -q
+            source ~/.virtualenvs/kalk/bin/activate
+            cd ~/domains/kalk.antyramy.eu/public_python
+            pip install -r requirements.txt -q
             touch passenger_wsgi.py
           EOF
