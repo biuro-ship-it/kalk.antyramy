@@ -100,6 +100,22 @@ def test_calculate_price_sama_rama_excludes_glass():
     assert frame_only["material"] < with_glass["material"]
 
 
+def test_empty_setting_falls_back_to_default():
+    # Regresja: puste ustawienie ('') nie może wywalić float() — ma wpaść w default.
+    settings = {**DEFAULT_SETTINGS, "margin_glass": "", "back_price_m2": ""}
+    result = calculate_price(
+        format_name="30x40",
+        profile=_profile(),
+        settings=settings,
+        category="drewno",
+        front_type="szklo",
+        with_pp=False,
+        labor_override=None,
+    )
+    assert result  # nie rzuca wyjątku, zwraca wynik
+    assert result["net"] > 0
+
+
 def test_calculate_all_covers_every_format():
     results = calculate_all(
         profile=_profile(),

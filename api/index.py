@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .database import init_db, get_conn
-from .calc import calculate_all
+from .calc import _num, calculate_all
 from .auth import verify_password, verify_cookie, make_session_token, set_password
 from .archive import create_archive, list_archives
 
@@ -111,7 +111,7 @@ async def calculate(
         profile = {
             "id": 0, "code": "ANTYRAMA", "name": "Antyrama",
             "category": "antyrama", "width_mm": 0, "price_mb": 0,
-            "margin_hurt": float(s.get("margin_antyrama", 35)),
+            "margin_hurt": _num(s, "margin_antyrama", 35),
             "img_url": "", "description": "",
         }
     else:
@@ -219,6 +219,8 @@ async def update_settings(request: Request):
         for key, value in data.items():
             if key == "admin_password_hash":
                 continue
+            if value is None or str(value).strip() == "":
+                continue  # pustych pól nie zapisujemy — zostaje poprzednia wartość
             conn.execute(
                 "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
                 (key, str(value))

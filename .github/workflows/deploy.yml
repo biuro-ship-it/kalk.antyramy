@@ -50,5 +50,6 @@ jobs:
             source ~/.virtualenvs/kalk/bin/activate
             cd ~/domains/kalk.antyramy.eu/public_python
             pip install -r requirements.txt -q
-            touch passenger_wsgi.py
+            mkdir -p tmp
+            touch tmp/restart.txt passenger_wsgi.py
           EOF

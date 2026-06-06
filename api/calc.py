@@ -26,6 +26,17 @@ FORMATS_CONFIG: dict = {
 LABOR_KEY = {"small": "labor_small", "medium": "labor_medium", "large": "labor_large"}
 
 
+def _num(settings: dict, key: str, default: float) -> float:
+    """Bezpieczna konwersja ustawienia na float — pusty/niepoprawny tekst → default."""
+    value = settings.get(key, default)
+    if value is None or value == "":
+        return float(default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def _apply_margin(cost: float, margin_pct: float) -> float:
     """Przelicza koszt zakupu na cenę sprzedaży z marżą."""
     div = 1 - margin_pct / 100
@@ -48,7 +59,7 @@ def calculate_price(
 
     w, h, s_cat, p_cat, clip_count, hook_count = FORMATS_CONFIG[format_name]
 
-    s_width      = float(profile.get("width_mm", 0))
+    s_width      = float(profile.get("width_mm", 0) or 0)
     odpad        = 8  # stałe 8 cm odpadu na narożniki
 
     # długość listwy w metrach: 2*(wys+dł) + 8*szer_listwy_cm
@@ -62,22 +73,22 @@ def calculate_price(
 
     # ── ceny zakupu ──────────────────────────────────────────────────
     front_key   = "plexsa_price_m2" if is_pleksa else "glass_price_m2"
-    front_cost  = float(settings.get(front_key, 0))
-    back_cost   = float(settings.get("back_price_m2", 0))
-    clip_cost   = float(settings.get("clip_price", 0))
-    hook_cost   = float(settings.get("hook_price", 0))
-    alu_kit_c   = float(settings.get("alu_kit_price", 0))
-    pp_cost     = float(settings.get("pp_price_m2", 0))
-    mb_cost     = float(profile.get("price_mb", 0))
-    vat         = float(settings.get("vat", 23))
+    front_cost  = _num(settings, front_key, 0)
+    back_cost   = _num(settings, "back_price_m2", 0)
+    clip_cost   = _num(settings, "clip_price", 0)
+    hook_cost   = _num(settings, "hook_price", 0)
+    alu_kit_c   = _num(settings, "alu_kit_price", 0)
+    pp_cost     = _num(settings, "pp_price_m2", 0)
+    mb_cost     = float(profile.get("price_mb", 0) or 0)
+    vat         = _num(settings, "vat", 23)
 
     # ── marże per element ────────────────────────────────────────────
-    margin_front  = float(settings.get("margin_plexsa" if is_pleksa else "margin_glass", 30))
-    margin_back   = float(settings.get("margin_back", 20))
-    margin_pp     = float(settings.get("margin_pp", 30))
-    margin_frame  = float(profile.get("margin_hurt", 40))   # marża listwy z profilu
-    margin_alu    = float(settings.get("margin_alu_kit", 20))
-    margin_clips  = float(settings.get("margin_clips", 20))
+    margin_front  = _num(settings, "margin_plexsa" if is_pleksa else "margin_glass", 30)
+    margin_back   = _num(settings, "margin_back", 20)
+    margin_pp     = _num(settings, "margin_pp", 30)
+    margin_frame  = float(profile.get("margin_hurt", 40) or 40)   # marża listwy z profilu
+    margin_alu    = _num(settings, "margin_alu_kit", 20)
+    margin_clips  = _num(settings, "margin_clips", 20)
 
     # ── kalkulacja per element ze swoją marżą ────────────────────────
     net = 0.0
@@ -100,7 +111,7 @@ def calculate_price(
 
     # ── robocizna (bez marży — to koszt usługi) ──────────────────────
     base_labor_key = LABOR_KEY.get(p_cat) if p_cat else None
-    base_labor = 0.0 if is_antyrama else float(settings.get(base_labor_key or "", 0))
+    base_labor = 0.0 if is_antyrama else _num(settings, base_labor_key or "", 0)
     labor = labor_override if labor_override is not None else base_labor
     net += labor
 
