@@ -16,9 +16,11 @@ from .auth import verify_password, verify_cookie, make_session_token, set_passwo
 from .archive import create_archive, list_archives
 
 BASE_DIR = Path(__file__).parent.parent
+STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
