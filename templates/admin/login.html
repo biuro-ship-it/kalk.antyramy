@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Antyramy Kalkulator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;background:#0f172a;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.card{background:#1e293b;border:.5px solid rgba(255,255,255,.1);border-radius:20px;padding:40px;width:100%;max-width:360px;}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;}
+.logo img{width:36px;height:36px;border-radius:8px;}
+.logo-text{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f1f5f9;}
+.logo-sub{font-size:10px;color:#64748b;margin-top:2px;}
+label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#64748b;margin-bottom:6px;}
+input[type=password]{width:100%;background:#0f172a;border:.5px solid rgba(255,255,255,.12);border-radius:9px;padding:12px 14px;font-size:14px;color:#f1f5f9;outline:none;margin-bottom:16px;}
+input[type=password]:focus{border-color:#3b82f6;}
+button{-webkit-appearance:none;appearance:none;width:100%;background-color:#ea580c!important;color:#fff!important;border:none!important;border-radius:10px;padding:14px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;cursor:pointer;}
+button:hover{background-color:#c2410c!important;}
+.error{background:rgba(220,38,38,.1);border:.5px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 12px;font-size:11px;color:#fca5a5;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <img src="https://godek.eu/upload/elogo6.jpg" alt="">
+    <div>
+      <div class="logo-text">Antyramy.eu</div>
+      <div class="logo-sub">Panel administratora</div>
+    </div>
+  </div>
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+  <form method="post" action="/admin/login">
+    <label>Hasło dostępu</label>
+    <input type="password" name="password" autofocus placeholder="••••••••">
+    <button type="submit">Zaloguj się →</button>
+  </form>
+</div>
+</body>
+</html>

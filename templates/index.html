@@ -1,268 +1,395 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wycena - Antyramy.eu</title>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0f172a">
-    <link rel="apple-touch-icon" sizes="180x180" href="https://godek.eu/upload/elogo6.jpg">
-    <link rel="icon" type="image/jpeg" sizes="32x32" href="https://godek.eu/upload/elogo6.jpg">
-    <link rel="shortcut icon" href="https://godek.eu/upload/elogo6.jpg">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
-        @media print {
-            @page { size: A4; margin: 0.8cm; }
-            body { background: white !important; zoom: 90%; -webkit-print-color-adjust: exact; }
-            .no-print { display: none !important; }
-            .print-card { border: 1px solid #000 !important; width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
-            .print-header { background: #111827 !important; color: white !important; padding: 15px !important; }
-            table { width: 100% !important; border-collapse: collapse !important; }
-            th { border-bottom: 2px solid black !important; font-size: 8pt !important; padding: 6px 4px !important; }
-            td { border-bottom: 1px solid #ddd !important; padding: 5px 4px !important; font-size: 10pt !important; }
-        }
-        .option-tile { transition: all 0.2s; cursor: pointer; border: 2px solid #e2e8f0; }
-        input[type="radio"]:checked + .option-tile { border-color: #2563eb; background-color: #eff6ff; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wycena — Antyramy.eu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="https://godek.eu/upload/elogo6.jpg">
+<link rel="icon" type="image/jpeg" href="https://godek.eu/upload/elogo6.jpg">
+<style>
+:root{--bg:#f8fafc;--bg2:#fff;--bg3:#f1f5f9;--border:rgba(0,0,0,.1);--border2:rgba(0,0,0,.2);--text:#0f172a;--text2:#475569;--text3:#94a3b8;--accent:#2563eb;--accent-bg:#eff6ff;--accent-border:#bfdbfe;--tile-ab:#eff6ff;--tile-ac:#2563eb;--success:#16a34a;--success-bg:#f0fdf4;--nav-bg:rgba(255,255,255,.95);--badge:#e2e8f0;--badge-t:#475569;}
+[data-theme="dark"]{--bg:#0f172a;--bg2:#1e293b;--bg3:#0f172a;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.18);--text:#f1f5f9;--text2:#94a3b8;--text3:#475569;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.12);--accent-border:rgba(59,130,246,.3);--tile-ab:rgba(59,130,246,.15);--tile-ac:#3b82f6;--success:#22c55e;--success-bg:rgba(34,197,94,.1);--nav-bg:rgba(15,23,42,.96);--badge:#1e293b;--badge-t:#94a3b8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);transition:background .2s,color .2s;min-height:100vh;}
+@media print{.no-print{display:none!important;}body{background:#fff!important;}}
+
+.nav{background:var(--nav-bg);border-bottom:.5px solid var(--border);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);}
+.nav-logo{display:flex;align-items:center;gap:10px;}
+.nav-logo img{width:30px;height:30px;border-radius:7px;}
+.nav-brand{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--text);}
+.nav-tags{display:flex;gap:6px;align-items:center;margin-top:3px;}
+.tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--badge);color:var(--badge-t);}
+.tag-blue{background:var(--accent-bg);color:var(--accent);border:.5px solid var(--accent-border);}
+.nav-right{display:flex;align-items:center;gap:8px;}
+.theme-switcher{display:flex;background:var(--bg3);border:.5px solid var(--border);border-radius:8px;overflow:hidden;}
+.theme-btn{-webkit-appearance:none!important;appearance:none!important;background-color:transparent!important;border:none!important;padding:6px 10px;cursor:pointer;font-size:15px;color:#94a3b8!important;line-height:1;}
+.theme-btn[data-t="light"],.theme-btn[data-t="dark"]{color:#f59e0b!important;}
+.theme-btn.active{background-color:var(--accent-bg)!important;}
+.theme-btn[data-t="light"].active,.theme-btn[data-t="dark"].active{color:#d97706!important;}
+.theme-btn[data-t="system"].active{color:var(--accent)!important;}
+.refresh-btn{-webkit-appearance:none!important;appearance:none!important;background-color:transparent!important;border:.5px solid var(--border)!important;border-radius:7px;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:700;color:#94a3b8!important;text-transform:uppercase;}
+.refresh-btn:hover{color:var(--accent)!important;}
+
+.main{max-width:900px;margin:0 auto;padding:24px 16px 48px;}
+.form-card{background:var(--bg2);border:.5px solid var(--border);border-radius:22px;padding:22px;margin-bottom:22px;}
+.section-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:var(--text3);margin-bottom:12px;}
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.type-tile{background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:14px 8px 12px;cursor:pointer;text-align:center;transition:all .15s;user-select:none;}
+.type-tile:hover{border-color:var(--border2);}
+.type-tile.active{border-color:var(--tile-ac);background:var(--tile-ab);}
+.type-tile-icon{font-size:22px;display:block;margin-bottom:5px;}
+.type-tile-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text2);}
+.type-tile.active .type-tile-label{color:var(--accent);}
+.divider{border:none;border-top:.5px solid var(--border);margin:18px 0;}
+.fill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.fill-tile{background:var(--bg3);border:1.5px solid var(--border);border-radius:7px;padding:10px 6px;cursor:pointer;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);transition:all .15s;user-select:none;}
+.fill-tile:hover{border-color:var(--border2);}
+.fill-tile.active{border-color:var(--tile-ac);background:var(--tile-ab);color:var(--accent);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.profile-preview{background:var(--bg3);border:.5px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-height:58px;}
+.preview-icon{font-size:22px;flex-shrink:0;width:36px;text-align:center;}
+.preview-img{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;}
+.preview-name{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text);letter-spacing:.06em;}
+.preview-desc{font-size:10px;color:var(--text2);margin-top:2px;}
+.select{width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text);outline:none;cursor:pointer;}
+.select:focus{border-color:var(--accent);}
+.pp-toggle{display:flex;align-items:center;gap:8px;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:10px 14px;cursor:pointer;height:44px;}
+.pp-toggle input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+.pp-label-text{font-size:9px;font-weight:800;text-transform:uppercase;color:var(--text2);}
+.calc-btn{display:block;width:100%;margin-top:20px;padding:17px 24px;border:none!important;border-radius:12px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.2em;cursor:pointer;-webkit-appearance:none;appearance:none;background-color:#ea580c!important;color:#fff!important;transition:background-color .15s,transform .1s;}
+.calc-btn:hover{background-color:#c2410c!important;}
+.calc-btn:active{background-color:#9a3412!important;transform:scale(.99);}
+
+.results-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.results-eyebrow{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:var(--text3);}
+.results-title{font-size:18px;font-weight:800;text-transform:uppercase;color:var(--text);margin-top:3px;}
+.print-btn{-webkit-appearance:none;appearance:none;background-color:var(--bg2)!important;border:.5px solid var(--border)!important;border-radius:8px;padding:7px 14px;font-size:10px;font-weight:700;text-transform:uppercase;cursor:pointer;color:var(--text2)!important;white-space:nowrap;}
+.formats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+.format-card{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:13px 11px;transition:all .15s;}
+.format-card:hover{border-color:var(--border2);transform:translateY(-1px);}
+.format-size{font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.format-size span{font-size:9px;color:var(--text3);margin-left:2px;}
+.format-gross{font-size:20px;font-weight:800;color:var(--accent);line-height:1;}
+.format-gross-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-top:1px;margin-bottom:7px;}
+.format-hr{border:none;border-top:.5px solid var(--border);margin:7px 0;}
+.format-net-row{display:flex;justify-content:space-between;align-items:center;}
+.format-net-val{font-size:12px;font-weight:700;color:var(--text2);}
+.format-net-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);}
+.format-badge{display:inline-block;background:var(--success-bg);color:var(--success);font-size:8px;font-weight:800;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-top:6px;}
+.results-layout{display:grid;grid-template-columns:1fr 220px;gap:14px;align-items:start;}
+.info-col{background:var(--bg2);border:.5px solid var(--border);border-radius:20px;padding:18px;}
+.info-img{width:100%;border-radius:9px;object-fit:cover;max-height:150px;margin-bottom:12px;}
+.info-img-placeholder{width:100%;border-radius:9px;background:var(--bg3);height:110px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;margin-bottom:12px;}
+.info-desc{font-size:11px;color:var(--text2);line-height:1.7;background:var(--accent-bg);border:.5px solid var(--accent-border);border-radius:8px;padding:11px 13px;}
+.admin-bar{background:var(--bg3);border-top:.5px solid var(--border);border-radius:0 0 20px 20px;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.vat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--text3);}
+.save-btn{-webkit-appearance:none;appearance:none;background-color:#0f172a!important;color:#f1f5f9!important;border:none!important;border-radius:7px;padding:7px 13px;font-size:9px;font-weight:800;text-transform:uppercase;cursor:pointer;}
+[data-theme="dark"] .save-btn{background-color:var(--accent)!important;}
+.admin-input{background:var(--bg2);border:.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;color:var(--text);width:80px;text-align:center;}
+
+.footer{background:var(--bg2);border-top:.5px solid var(--border);padding:28px 20px;}
+.footer-inner{max-width:900px;margin:0 auto;}
+.footer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+.footer-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:var(--text3);margin-bottom:7px;}
+.footer-txt{font-size:12px;color:var(--text2);line-height:1.7;}
+.footer-link{color:#2563eb;font-weight:800;font-size:12px;text-decoration:none;}
+[data-theme="dark"] .footer-link{color:#3b82f6;}
+.footer-bottom{margin-top:18px;padding-top:14px;border-top:.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.footer-copy{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--text3);}
+
+@media(max-width:640px){
+  .type-grid{grid-template-columns:repeat(2,1fr);}
+  .row2{grid-template-columns:1fr;}
+  .results-layout{grid-template-columns:1fr;}
+  .formats-grid{grid-template-columns:repeat(2,1fr);}
+  .footer-grid{grid-template-columns:1fr;}
+}
+</style>
 </head>
-<body class="text-slate-900 min-h-screen flex flex-col">
-    <nav class="bg-white border-b border-slate-200 py-4 no-print shadow-sm">
-        <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <img src="https://godek.eu/upload/elogo6.jpg" class="h-8 w-8 rounded-md shadow-sm">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                    <h1 class="text-sm font-black uppercase tracking-widest text-slate-700">Antyramy.eu</h1>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">tel. 500 601 601</span>
-                        <a href="mailto:biuro@antyramy.eu" class="text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full shadow-sm hover:bg-slate-100 transition-colors whitespace-nowrap">biuro@antyramy.eu</a>
-                    </div>
-                </div>
-            </div>
-            <form action="/refresh" method="post"><button type="submit" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors">🔄 Odśwież Baze</button></form>
+<body>
+
+<nav class="nav no-print">
+  <div class="nav-logo">
+    <img src="https://godek.eu/upload/elogo6.jpg" alt="Antyramy.eu">
+    <div>
+      <div class="nav-brand">Antyramy.eu</div>
+      <div class="nav-tags">
+        <span class="tag tag-blue">500 601 601</span>
+        <a href="mailto:biuro@antyramy.eu" class="tag">biuro@antyramy.eu</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <form action="/refresh" method="post" style="display:inline">
+      <button type="submit" class="refresh-btn">&#8635; Odśwież</button>
+    </form>
+    <div class="theme-switcher" role="group" aria-label="Motyw">
+      <button class="theme-btn" data-t="light" title="Jasny">&#9728;</button>
+      <button class="theme-btn" data-t="system" title="Systemowy">&#9633;</button>
+      <button class="theme-btn" data-t="dark" title="Ciemny">&#9790;</button>
+    </div>
+    {% if is_admin %}
+    <a href="/admin" style="font-size:10px;font-weight:700;color:var(--accent);text-decoration:none;padding:5px 10px;background:var(--accent-bg);border-radius:7px;">&#9881; Admin</a>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="main">
+  <form action="/calculate" method="post" id="calcForm">
+
+    <div class="form-card no-print">
+      <p class="section-label">1. Produkt</p>
+      <div class="type-grid">
+        {% for val, lbl, icon in [('drewno','Drewno','🪵'),('plastik','Plastik','🪟'),('alu','Aluminium','⛓️'),('antyrama','Antyrama','🖼️')] %}
+        <label>
+          <input type="radio" name="category" value="{{ val }}" class="sr-only cat-radio"
+            {{ 'checked' if (category==val or (not category and val=='drewno')) }}>
+          <div class="type-tile {{ 'active' if (category==val or (not category and val=='drewno')) }}">
+            <span class="type-tile-icon">{{ icon }}</span>
+            <span class="type-tile-label">{{ lbl }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+
+      <hr class="divider">
+
+      <div class="row2">
+        <div>
+          <p class="section-label">2. Wypełnienie</p>
+          <div class="fill-grid">
+            {% for val, lbl in [('szklo','Szkło'),('pleksa','Pleksa'),('sama_rama','Sama rama')] %}
+            <label>
+              <input type="radio" name="front_type" value="{{ val }}" class="sr-only fill-radio"
+                {{ 'checked' if (front_type==val or (not front_type and val=='szklo')) }}>
+              <div class="fill-tile {{ 'active' if (front_type==val or (not front_type and val=='szklo')) }}">{{ lbl }}</div>
+            </label>
+            {% endfor %}
+          </div>
         </div>
-    </nav>
+        <div id="profileContainer">
+          <p class="section-label">3. Kod / kolor listwy</p>
+          <select name="profile_id" id="profileSelect" class="select" onchange="updatePreview()">
+            <option value="">-- Wybierz profil --</option>
+            {% for p in profiles %}
+            <option value="{{ p.id }}" data-cat="{{ p.category }}"
+              data-img="{{ p.img_url }}" data-desc="{{ p.description }}" data-name="{{ p.name }}"
+              {{ 'selected' if profile and profile.id == p.id }}>
+              {{ p.code }} — {{ p.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
 
-    <main class="max-w-6xl mx-auto px-4 pt-8 pb-12 flex-grow w-full">
-        <form action="/calculate" method="post" id="calcForm">
-            
-            <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 no-print mb-8">
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 space-y-6 lg:space-y-0">
-                    <div class="lg:col-span-7">
-                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">1. Produkt</label>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {% for val, label, icon in [('drewno', 'Drewno', '🪵'), ('plastik', 'Plastik', '🪟'), ('alu', 'Aluminium', '⛓️'), ('antyrama', 'Antyrama', '🖼️')] %}
-                            <label>
-                                <input type="radio" name="main_category" value="{{ val }}" class="sr-only cat-radio" {{ 'checked' if main_category == val or (not main_category and val == 'drewno') }}>
-                                <div class="option-tile bg-white p-4 rounded-xl text-center">
-                                    <div class="h-8 flex items-center justify-center mb-1">
-                                        {% if val == 'plastik' %}
-                                            <img src="/static/icons/plastik.png" class="h-8 w-8 object-contain" alt="Plastik">
-                                        {% elif val == 'alu' %}
-                                            <img src="/static/icons/aluminum.png" class="h-8 w-8 object-contain" alt="Aluminium">
-                                        {% else %}
-                                            <span class="block text-2xl">{{ icon }}</span>
-                                        {% endif %}
-                                    </div>
-                                    <span class="block text-[10px] font-black uppercase text-slate-600">{{ label }}</span>
-                                </div>
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    <div class="lg:col-span-5">
-                        <label class="block text-[10px] font-black text-slate-400 uppercase mb-3">2. Wypełnienie</label>
-                        <div class="grid grid-cols-3 gap-3">
-                            {% for val, label in [('szklo', 'Szkło'), ('pleksa', 'Pleksa'), ('sama_rama', 'Sama rama')] %}
-                            <label>
-                                <input type="radio" name="front_type" value="{{ val }}" class="sr-only fill-radio" {{ 'checked' if front_type == val or (not front_type and val == 'szklo') }}>
-                                <div class="option-tile bg-white p-4 rounded-xl text-center flex items-center justify-center h-[76px]">
-                                    <span class="text-[10px] font-black uppercase text-slate-700 leading-tight">{{ label }}</span>
-                                </div>
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-6 mt-6 border-t">
-                    <div class="md:col-span-6" id="profileContainer">
-                        <label class="block text-[10px] font-black text-slate-400 mb-2 uppercase">3. Kod / Kolor listwy</label>
-                        <select name="profile_name" id="profileSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black uppercase text-sm focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                    </div>
-                    <div class="md:col-span-3">
-                        <label class="block text-[10px] font-black text-slate-400 mb-2 uppercase">4. Dodatki</label>
-                        <input type="hidden" name="mode" value="wholesale">
-                        <label id="pp_label" class="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                            <input type="checkbox" name="with_pp" value="true" class="w-4 h-4 text-blue-600 rounded" {{ 'checked' if with_pp }}>
-                            <span class="text-[10px] font-black text-slate-600 uppercase">Passe-partout</span>
-                        </label>
-                    </div>
-                    <div class="md:col-span-3 flex items-end">
-                        <button type="submit" class="w-full bg-blue-600 text-white font-black py-3.5 rounded-xl uppercase text-[10px] shadow-lg hover:bg-blue-700 transition-all transform active:scale-95">Oblicz cenę</button>
-                    </div>
-                </div>
+      <hr class="divider">
+
+      <div class="row2" style="margin-bottom:4px">
+        <div>
+          <p class="section-label">Podgląd listwy</p>
+          <div class="profile-preview">
+            <div id="previewIcon" class="preview-icon">🪵</div>
+            <div>
+              <div class="preview-name" id="previewName">Wybierz profil powyżej</div>
+              <div class="preview-desc" id="previewDesc">Zdjęcie przekroju i opis pojawi się tutaj</div>
             </div>
+          </div>
+        </div>
+        <div>
+          <p class="section-label">4. Dodatki</p>
+          <label class="pp-toggle" id="ppLabel">
+            <input type="checkbox" name="with_pp" value="true" {{ 'checked' if with_pp }}>
+            <span class="pp-label-text">Passe-partout (+PP)</span>
+          </label>
+          <input type="hidden" name="mode" value="wholesale">
+        </div>
+      </div>
 
-            {% if results %}
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 print:block">
-                <div class="xl:col-span-2 bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden print-card">
-                    <div class="p-6 bg-slate-900 text-white flex justify-between items-center print-header">
-                        <div><p class="text-[9px] font-black uppercase opacity-60 mb-1">Karta produktu (HURT)</p><h2 class="text-2xl font-black uppercase">{{ profile }}</h2></div>
-                        <button type="button" onclick="window.print()" class="no-print bg-white text-slate-900 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-slate-100">🖨️ Drukuj</button>
-                    </div>
-                    <table class="w-full">
-                        <thead><tr class="bg-slate-50 text-[9px] font-black text-slate-400 uppercase border-b"><th class="p-4 text-left">Format</th>{% if is_admin %}<th class="p-4 text-right">Surowiec</th><th class="p-4 text-center">Praca (zł)</th><th class="p-4 text-center">Marża %</th><th class="p-4 text-right text-green-600">Zysk</th>{% endif %}<th class="p-4 text-right">Netto</th><th class="p-4 text-right bg-blue-50 text-blue-700">Brutto</th></tr></thead>
-                        <tbody class="font-black">{% for r in results %}
-                            <tr class="border-b border-slate-50 hover:bg-slate-50/50">
-                                <td class="p-4 text-sm">{{ r.size }} cm</td>
-                                {% if is_admin %}
-                                <td class="p-4 text-right text-slate-500 text-[10px]">{{ r.surowiec }} zł</td>
-                                <td class="p-4 text-center"><input type="number" step="0.1" value="{{ r.labor }}" data-type="labor" data-size="{{ r.size }}" class="dynamic-calc no-print w-14 text-center bg-slate-100 rounded text-slate-900 font-bold text-xs py-1"><span class="hidden print:inline text-xs">{{ r.labor }} zł</span></td>
-                                <td class="p-4 text-center"><input type="number" step="0.1" value="{{ r.active_margin }}" data-type="margin" data-size="{{ r.size }}" class="dynamic-calc no-print w-12 text-center bg-slate-100 rounded text-blue-600 font-bold text-xs py-1"><span class="hidden print:inline text-xs">{{ r.active_margin }}%</span></td>
-                                <td class="p-4 text-right text-green-600 text-sm"><span class="profit-price" data-surowiec="{{ r.surowiec }}">{{ r.profit }}</span> zł</td>
-                                {% endif %}
-                                <td class="p-4 text-right text-slate-600 text-sm"><span class="net-price">{{ r.net }}</span> zł</td>
-                                <td class="p-4 text-right text-base text-blue-700"><span class="gross-price" data-vat="{{ vat }}">{{ r.gross }}</span> zł</td>
-                            </tr>
-                        {% endfor %}</tbody>
-                    </table>
-                    <div class="p-4 bg-slate-50 border-t flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest"><span>Antyramy.eu</span>{% if is_admin %}<button type="button" onclick="saveMarginsToDB()" id="saveBtn" class="no-print bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px] hover:bg-green-600">💾 Zapisz Wszystko</button>{% endif %}<span>VAT {{ vat }}%</span></div>
-                </div>
+      <button type="submit" class="calc-btn">Oblicz cenę &#8594;</button>
+    </div>
 
-                <div class="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-200 no-print space-y-8 flex flex-col">
-                    <p class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest text-center">Informacje o produkcie</p>
-                    {% if is_admin %}
-                    <div class="space-y-4">
-                        <div><label class="text-[9px] font-black text-blue-600 uppercase">Link do zdjęcia</label><input type="text" id="admin_img_url" value="{{ przekroj_img }}" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1"></div>
-                        <div><label class="text-[9px] font-black text-blue-600 uppercase">Opis</label><textarea id="admin_description" rows="4" class="w-full bg-slate-50 border rounded-lg p-2 text-xs font-bold mt-1">{{ description }}</textarea></div>
-                    </div>
-                    {% endif %}
-                    {% if przekroj_img and not is_admin %}<img src="{{ przekroj_img }}" class="max-w-full h-auto rounded-2xl shadow-inner border bg-slate-50 p-2">{% endif %}
-                    {% if description and not is_admin %}<div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 text-slate-700 text-sm font-semibold whitespace-pre-line leading-relaxed">{{ description }}</div>{% endif %}
-                </div>
+    {% if results %}
+    <div class="results-layout">
+      <div>
+        <div class="results-header no-print">
+          <div>
+            <div class="results-eyebrow">Karta produktu (Hurt)</div>
+            <div class="results-title">{{ profile.code }} — {{ profile.name }}</div>
+          </div>
+          <button type="button" onclick="window.print()" class="print-btn">🖨️ Drukuj</button>
+        </div>
+
+        <div class="formats-grid">
+          {% for r in results %}
+          <div class="format-card">
+            <div class="format-size">{{ r.format.replace('x','×') }}<span>cm</span></div>
+            <div class="format-gross">{{ "%.2f"|format(r.gross) }}</div>
+            <div class="format-gross-lbl">zł brutto</div>
+            <hr class="format-hr">
+            <div class="format-net-row">
+              <span class="format-net-val">{{ "%.2f"|format(r.net) }} zł</span>
+              <span class="format-net-lbl">netto</span>
+            </div>
+            {% if is_admin %}
+            <div style="margin-top:6px;display:flex;gap:4px;" class="no-print">
+              <input class="admin-input" type="number" step="0.1" value="{{ r.margin }}"
+                data-fmt="{{ r.format }}" data-type="margin" title="Marża %">
+              <input class="admin-input" type="number" step="0.1" value="{{ r.labor }}"
+                data-fmt="{{ r.format }}" data-type="labor" title="Praca zł">
             </div>
             {% endif %}
-
-            <div class="pt-16 pb-8 no-print flex justify-center w-full">
-                <div class="opacity-10 hover:opacity-100 transition-opacity duration-500">
-                    <input type="password" name="password" placeholder="System Access" class="bg-transparent border-b border-slate-300 text-[10px] text-center w-32 px-2 py-1 font-bold outline-none focus:border-blue-500 text-slate-400">
-                </div>
-            </div>
-
-        </form>
-    </main>
-
-    <footer class="bg-white border-t border-slate-200 py-10 no-print">
-        <div class="max-w-6xl mx-auto px-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="space-y-3">
-                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Współpraca</p>
-                    <p class="text-sm text-slate-600 leading-relaxed">Prowadzisz firmę? Zapraszamy do naszego dedykowanego systemu zamówień B2B.</p>
-                    <a href="https://b2b.antyramy.eu" target="_blank" class="inline-flex items-center text-blue-600 font-black text-sm hover:underline">b2b.antyramy.eu <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></a>
-                </div>
-                <div class="space-y-3">
-                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Kontakt</p>
-                    <p class="text-sm text-slate-600">Tarnów, Małopolska<br>ul. Monopolowa 11<br>Dni robocze: 9:00 - 16:00</p>
-                    <p class="text-sm font-bold text-slate-700">tel. 500 601 601</p>
-                </div>
-                <div class="space-y-3">
-                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Informacja</p>
-                    <p class="text-[11px] text-slate-500 leading-relaxed italic">Przedstawione wyceny mają charakter informacyjny i nie stanowią oferty handlowej w rozumieniu Art.66 par.1 Kodeksu Cywilnego.</p>
-                </div>
-            </div>
-            <div class="mt-10 pt-6 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center gap-2"><img src="https://godek.eu/upload/elogo6.jpg" class="h-5 w-5 grayscale opacity-50"><span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2026 Antyramy.eu</span></div>
-            </div>
+          </div>
+          {% endfor %}
         </div>
-    </footer>
 
-    <script>
-        const allProfiles = [{% for p in profiles %}{ nazwa: "{{ p.nazwa }}", kat: "{{ p.kat }}" },{% endfor %}];
-        const currentProfileSelection = "{{ selected_profile|default('') }}";
-        
-        function filterProfiles() {
-            const selectedCat = document.querySelector('.cat-radio:checked').value;
-            const container = document.getElementById('profileContainer');
-            const select = document.getElementById('profileSelect');
-            const fillRadios = document.querySelectorAll('.fill-radio');
-            const ppLabel = document.getElementById('pp_label');
-            
-            if (selectedCat === 'antyrama') { 
-                container.style.display = 'none'; 
-                fillRadios.forEach(r => { if(r.value === 'sama_rama') r.closest('label').style.display = 'none'; });
-                ppLabel.style.display = 'none';
-            } else {
-                container.style.display = 'block'; 
-                fillRadios.forEach(r => { r.closest('label').style.display = 'block'; });
-                ppLabel.style.display = 'flex';
-                select.innerHTML = '<option value="" disabled>-- Kod listwy --</option>';
-                const filtered = allProfiles.filter(p => p.kat === selectedCat);
-                filtered.forEach(p => { 
-                    const opt = document.createElement('option'); opt.value = opt.text = p.nazwa; 
-                    if (p.nazwa === currentProfileSelection) opt.selected = true; 
-                    select.appendChild(opt); 
-                });
-                if (select.selectedIndex <= 0 && filtered.length > 0) select.selectedIndex = 1;
-            }
-        }
-        
-        document.querySelectorAll('.cat-radio').forEach(r => r.addEventListener('change', filterProfiles));
-        document.addEventListener('DOMContentLoaded', filterProfiles);
+        <div class="admin-bar no-print">
+          <span class="vat-lbl">VAT {{ vat }}%</span>
+          {% if is_admin %}
+          <button type="button" onclick="saveMargins()" class="save-btn" id="saveBtn">💾 Zapisz zmiany</button>
+          {% endif %}
+        </div>
+      </div>
 
-        {% if is_admin %}
-        // BEZPIECZEŃSTWO: Całkowicie usunięto stąd zmienną API_PASSWORD
-        const API_MODE = "wholesale", API_PROFILE = "{{ profile }}", API_RAW_NAME = "{{ profile_raw_name }}";
-        
-        document.querySelectorAll('.dynamic-calc').forEach(input => {
-            input.addEventListener('input', function() {
-                const row = this.closest('tr');
-                const mInp = row.querySelector('[data-type="margin"]'), lInp = row.querySelector('[data-type="labor"]'), pEl = row.querySelector('.profit-price'), nEl = row.querySelector('.net-price'), gEl = row.querySelector('.gross-price');
-                let m = parseFloat(mInp.value) || 0; if(m >= 100) m = 99.9;
-                const s = parseFloat(pEl.getAttribute('data-surowiec')), l = parseFloat(lInp.value) || 0, v = parseFloat(gEl.getAttribute('data-vat'));
-                const tc = s + l, net = tc / (1 - (m / 100)), gross = net * (1 + v/100), profit = net - tc;
-                nEl.innerText = net.toFixed(2); gEl.innerText = gross.toFixed(2); pEl.innerText = profit.toFixed(2);
-            });
-        });
-        
-        async function saveMarginsToDB() {
-            const btn = document.getElementById('saveBtn'); btn.innerText = '⏳ ZAPISYWANIE...';
-            const updates = Array.from(document.querySelectorAll('tr.border-b')).map(row => {
-                const mI = row.querySelector('[data-type="margin"]'), lI = row.querySelector('[data-type="labor"]');
-                return mI ? { mode: API_MODE, profile: API_PROFILE, size: mI.getAttribute('data-size'), margin: parseFloat(mI.value) || 0, labor: parseFloat(lI.value) || 0 } : null;
-            }).filter(u => u);
-            
-            // BEZPIECZEŃSTWO: Payload nie wysyła już hasła. Serwer ufa naszemu ciastku 'admin_auth'.
-            const payload = { 
-                updates: updates, 
-                profile_raw_name: API_RAW_NAME, 
-                new_img: document.getElementById('admin_img_url').value, 
-                new_desc: document.getElementById('admin_description').value 
-            };
-            
-            try {
-                const res = await fetch('/save_margins', { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(payload) 
-                });
-                const d = await res.json(); 
-                if (d.success) { 
-                    btn.innerText = '✅ ZAPISANO!'; 
-                    setTimeout(() => btn.innerText = '💾 Zapisz Wszystko', 2000); 
-                } else {
-                    alert('Błąd zapisu: ' + (d.error || 'nieznany błąd'));
-                    btn.innerText = '💾 Zapisz Wszystko';
-                }
-            } catch (err) { 
-                alert('Błąd sieci'); 
-                btn.innerText = '💾 Zapisz Wszystko';
-            }
-        }
+      <div class="info-col no-print">
+        <p class="section-label" style="margin-bottom:10px">Informacje o produkcie</p>
+        {% if profile.img_url %}
+        <img src="{{ profile.img_url }}" class="info-img" alt="Przekrój listwy">
+        {% else %}
+        <div class="info-img-placeholder">📷 zdjęcie przekroju</div>
         {% endif %}
-    </script>
+        {% if profile.description %}
+        <div class="info-desc">{{ profile.description }}</div>
+        {% endif %}
+        {% if is_admin %}
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+          <p class="section-label">Edycja (admin)</p>
+          <input type="text" id="adminImg" value="{{ profile.img_url }}"
+            placeholder="URL zdjęcia" class="admin-input" style="width:100%">
+          <textarea id="adminDesc" rows="4" placeholder="Opis produktu"
+            style="width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:8px;font-size:11px;color:var(--text);resize:vertical">{{ profile.description }}</textarea>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+  </form>
+</main>
+
+<footer class="footer no-print">
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div>
+        <p class="footer-lbl">Współpraca B2B</p>
+        <p class="footer-txt" style="margin-bottom:7px">Prowadzisz firmę? Zapraszamy do systemu zamówień B2B.</p>
+        <a href="https://b2b.antyramy.eu" target="_blank" class="footer-link">b2b.antyramy.eu &#8599;</a>
+      </div>
+      <div>
+        <p class="footer-lbl">Kontakt</p>
+        <p class="footer-txt">Tarnów, Małopolska<br>ul. Monopolowa 11<br>Dni robocze: 9:00–16:00<br><strong>tel. 500 601 601</strong></p>
+      </div>
+      <div>
+        <p class="footer-lbl">Informacja</p>
+        <p class="footer-txt" style="font-style:italic">Wyceny mają charakter informacyjny i nie stanowią oferty handlowej w rozumieniu Art.66 KC.</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div style="display:flex;align-items:center;gap:8px">
+        <img src="https://godek.eu/upload/elogo6.jpg" style="width:16px;height:16px;border-radius:4px;opacity:.35" alt="">
+        <span class="footer-copy">© 2026 Antyramy.eu</span>
+      </div>
+      <span class="footer-copy">kalk.antyramy.eu</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const PROFILE_ID = {{ profile.id if profile else 'null' }};
+const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+
+function applyTheme(t){
+  const dark = t==='system' ? window.matchMedia('(prefers-color-scheme:dark)').matches : t==='dark';
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  localStorage.setItem('kalk-theme',t);
+}
+document.querySelectorAll('.theme-btn').forEach(b=>b.addEventListener('click',()=>applyTheme(b.dataset.t)));
+applyTheme(localStorage.getItem('kalk-theme')||'system');
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
+  if((localStorage.getItem('kalk-theme')||'system')==='system') applyTheme('system');
+});
+
+document.querySelectorAll('.cat-radio').forEach(r=>r.addEventListener('change',function(){
+  document.querySelectorAll('.type-tile').forEach(t=>t.classList.remove('active'));
+  this.closest('label').querySelector('.type-tile').classList.add('active');
+  filterProfiles(this.value);
+}));
+document.querySelectorAll('.fill-radio').forEach(r=>r.addEventListener('change',function(){
+  document.querySelectorAll('.fill-tile').forEach(t=>t.classList.remove('active'));
+  this.closest('label').querySelector('.fill-tile').classList.add('active');
+}));
+document.querySelectorAll('.type-tile').forEach(t=>t.addEventListener('click',()=>{
+  const inp=t.closest('label')?.querySelector('input');
+  if(inp){inp.checked=true;inp.dispatchEvent(new Event('change'));}
+}));
+document.querySelectorAll('.fill-tile').forEach(t=>t.addEventListener('click',()=>{
+  const inp=t.closest('label')?.querySelector('input');
+  if(inp){inp.checked=true;inp.dispatchEvent(new Event('change'));}
+}));
+
+function filterProfiles(cat){
+  const pc=document.getElementById('profileContainer');
+  const pp=document.getElementById('ppLabel');
+  const sel=document.getElementById('profileSelect');
+  if(cat==='antyrama'){pc.style.display='none';pp.style.display='none';return;}
+  pc.style.display='';pp.style.display='';
+  Array.from(sel.options).forEach(o=>{if(!o.value)return;o.hidden=o.dataset.cat!==cat;});
+  if(sel.selectedOptions[0]?.hidden){sel.value='';updatePreview();}
+}
+filterProfiles(document.querySelector('.cat-radio:checked')?.value||'drewno');
+
+function updatePreview(){
+  const sel=document.getElementById('profileSelect');
+  const opt=sel?.selectedOptions[0];
+  const icon=document.getElementById('previewIcon');
+  const name=document.getElementById('previewName');
+  const desc=document.getElementById('previewDesc');
+  if(opt?.value){
+    const img=opt.dataset.img;
+    icon.innerHTML=img?`<img src="${img}" class="preview-img" alt="">`:'🪵';
+    name.textContent=opt.dataset.name||opt.text;
+    desc.textContent=opt.dataset.desc||'';
+  } else {
+    icon.textContent='🪵';
+    name.textContent='Wybierz profil powyżej';
+    desc.textContent='Zdjęcie przekroju i opis pojawi się tutaj';
+  }
+}
+
+async function saveMargins(){
+  const btn=document.getElementById('saveBtn');
+  btn.textContent='⏳ Zapisywanie…';
+  const updates=[];
+  document.querySelectorAll('[data-type="margin"]').forEach(inp=>{
+    const fmt=inp.dataset.fmt;
+    const labor=document.querySelector(`[data-fmt="${fmt}"][data-type="labor"]`)?.value||0;
+    updates.push({mode:'wholesale',profile_id:PROFILE_ID,format:fmt,
+      margin:parseFloat(inp.value)||0,labor:parseFloat(labor)||0});
+  });
+  try{
+    const res=await fetch('/api/save-margins',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({updates,profile_id:PROFILE_ID,
+        img_url:document.getElementById('adminImg')?.value||'',
+        description:document.getElementById('adminDesc')?.value||''})});
+    const d=await res.json();
+    btn.textContent=d.ok?'✅ Zapisano!':'❌ Błąd';
+  }catch{btn.textContent='❌ Błąd sieci';}
+  setTimeout(()=>btn.textContent='💾 Zapisz zmiany',2000);
+}
+</script>
 </body>
 </html>

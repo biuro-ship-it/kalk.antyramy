@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel Admina — Antyramy</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;}
+.topbar{background:#1e293b;border-bottom:.5px solid rgba(255,255,255,.08);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;}
+.brand{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f1f5f9;}
+.brand img{width:24px;height:24px;border-radius:6px;}
+.topbar-right{display:flex;gap:10px;align-items:center;}
+.lnk{color:#64748b;font-size:10px;font-weight:700;text-decoration:none;text-transform:uppercase;}
+.btn{-webkit-appearance:none;appearance:none;border:none!important;border-radius:8px;padding:7px 14px;font-size:10px;font-weight:800;text-transform:uppercase;cursor:pointer;}
+.btn-orange{background-color:#ea580c!important;color:#fff!important;}
+.btn-orange:hover{background-color:#c2410c!important;}
+.btn-slate{background-color:#334155!important;color:#f1f5f9!important;}
+.btn-slate:hover{background-color:#475569!important;}
+.btn-green{background-color:#16a34a!important;color:#fff!important;}
+.btn-green:hover{background-color:#15803d!important;}
+.btn-red{background-color:#dc2626!important;color:#fff!important;}
+.btn-red:hover{background-color:#b91c1c!important;}
+.main{max-width:1100px;margin:0 auto;padding:28px 20px;}
+.section{background:#1e293b;border:.5px solid rgba(255,255,255,.08);border-radius:18px;padding:22px;margin-bottom:20px;}
+.section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#64748b;margin-bottom:16px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.field-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:4px;}
+input,textarea,select{width:100%;background:#0f172a;border:.5px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 11px;font-size:12px;font-weight:600;color:#f1f5f9;outline:none;}
+input:focus,textarea:focus,select:focus{border-color:#3b82f6;}
+textarea{resize:vertical;min-height:80px;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#64748b;padding:8px 10px;border-bottom:.5px solid rgba(255,255,255,.06);}
+.tbl td{padding:9px 10px;border-bottom:.5px solid rgba(255,255,255,.04);vertical-align:middle;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase;}
+.b-drewno{background:rgba(120,60,20,.3);color:#d97706;}
+.b-plastik{background:rgba(30,100,200,.2);color:#60a5fa;}
+.b-alu{background:rgba(100,100,100,.3);color:#94a3b8;}
+.b-antyrama{background:rgba(120,30,120,.2);color:#c084fc;}
+.archive-list{display:flex;flex-direction:column;gap:6px;}
+.archive-item{background:#0f172a;border:.5px solid rgba(255,255,255,.06);border-radius:9px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.arc-date{font-size:11px;font-weight:700;color:#94a3b8;}
+.arc-note{font-size:11px;color:#64748b;flex:1;}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.s-item{display:flex;flex-direction:column;gap:4px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:#1e293b;border:.5px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;width:100%;max-width:500px;}
+.modal-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:18px;}
+.modal-fields{display:flex;flex-direction:column;gap:10px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <img src="https://godek.eu/upload/elogo6.jpg" alt="">
+    Antyramy — Panel Admina
+  </div>
+  <div class="topbar-right">
+    <a href="/" class="lnk">&#8592; Kalkulator</a>
+    <a href="/admin/logout"><button class="btn btn-slate">Wyloguj</button></a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ARCHIWUM -->
+  <div class="section">
+    <div class="section-title">&#128230; Archiwum cennika</div>
+    <form method="post" action="/admin/archive" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+      <div style="flex:1;min-width:220px">
+        <div class="field-lbl">Notatka</div>
+        <input type="text" name="note" placeholder="np. zmiana cen czerwiec 2026">
+      </div>
+      <button type="submit" class="btn btn-orange">&#128230; Pobierz ZIP</button>
+    </form>
+    {% if archives %}
+    <div class="archive-list">
+      {% for a in archives %}
+      <div class="archive-item">
+        <span class="arc-date">{{ a.changed_at }}</span>
+        <span class="arc-note">{{ a.note or '—' }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:12px;color:#475569">Brak archiwów. Kliknij "Pobierz ZIP" aby utworzyć pierwsze.</p>
+    {% endif %}
+  </div>
+
+  <!-- USTAWIENIA GLOBALNE -->
+  <div class="section">
+    <div class="section-title">&#9881; Ustawienia globalne</div>
+    <div class="settings-grid">
+      {% set labels = {
+        'vat':'VAT (%)', 'frame_margin_mm':'Naddatek ramy (mm)',
+        'glass_price_m2':'Cena szkła (zł/m²)', 'plexsa_price_m2':'Cena pleksy (zł/m²)',
+        'back_price_m2':'Cena tylnej (zł/m²)', 'pp_price_m2':'Cena PP (zł/m²)',
+        'hook_price':'Zaczep (zł)', 'clip_price':'Spinka (zł)',
+        'alu_kit_price':'Montaż alu (zł)',
+        'labor_small':'Praca mała (zł)', 'labor_medium':'Praca średnia (zł)', 'labor_large':'Praca duża (zł)'
+      } %}
+      {% for key, lbl in labels.items() %}
+      <div class="s-item">
+        <div class="field-lbl">{{ lbl }}</div>
+        <input type="number" step="0.01" data-key="{{ key }}" value="{{ settings.get(key,'') }}" class="s-input">
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+      <button class="btn btn-green" onclick="saveSettings()">&#10003; Zapisz ustawienia</button>
+      <span id="sMsg" style="font-size:11px;color:#64748b"></span>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="section-title" style="margin:0">&#127874; Profile listew</div>
+      <button class="btn btn-orange" onclick="openModal()">+ Dodaj profil</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead>
+          <tr><th>Kod</th><th>Nazwa</th><th>Kat.</th><th>Szer.</th><th>Cena/mb</th><th>Marża</th><th>Akcje</th></tr>
+        </thead>
+        <tbody>
+          {% for p in profiles %}
+          <tr id="row-{{ p.id }}">
+            <td><strong>{{ p.code }}</strong></td>
+            <td>{{ p.name }}</td>
+            <td><span class="badge b-{{ p.category }}">{{ p.category }}</span></td>
+            <td>{{ p.width_mm }} mm</td>
+            <td>{{ p.price_mb }} zł</td>
+            <td>{{ p.margin_hurt }}%</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-slate" onclick='editProfile({{ p|tojson }})'>Edytuj</button>
+              <button class="btn btn-red" onclick="delProfile({{ p.id }},'{{ p.code }}')">Usuń</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ZMIANA HASŁA -->
+  <div class="section">
+    <div class="section-title">&#128274; Zmiana hasła</div>
+    <form method="post" action="/api/set-password" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div class="field-lbl">Nowe hasło</div>
+        <input type="password" name="new_password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-slate">Zmień hasło</button>
+    </form>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="mTitle">Dodaj profil</div>
+    <div class="modal-fields">
+      <input type="hidden" id="eId">
+      <div class="grid2">
+        <div><div class="field-lbl">Kod *</div><input type="text" id="fCode" placeholder="np. LN-01"></div>
+        <div><div class="field-lbl">Kategoria *</div>
+          <select id="fCat">
+            <option value="drewno">Drewno</option>
+            <option value="plastik">Plastik</option>
+            <option value="alu">Aluminium</option>
+            <option value="antyrama">Antyrama</option>
+          </select>
+        </div>
+      </div>
+      <div><div class="field-lbl">Pełna nazwa *</div><input type="text" id="fName" placeholder="np. Dąb naturalny mat"></div>
+      <div class="grid3">
+        <div><div class="field-lbl">Szer. (mm)</div><input type="number" step="0.5" id="fWidth" value="20"></div>
+        <div><div class="field-lbl">Cena /mb (zł)</div><input type="number" step="0.01" id="fPrice" value="0"></div>
+        <div><div class="field-lbl">Marża hurt (%)</div><input type="number" step="0.5" id="fMargin" value="40"></div>
+      </div>
+      <div><div class="field-lbl">URL zdjęcia</div><input type="text" id="fImg" placeholder="https://..."></div>
+      <div><div class="field-lbl">Opis</div><textarea id="fDesc" placeholder="Opis widoczny przy wycenie..."></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-slate" onclick="closeModal()">Anuluj</button>
+      <button class="btn btn-orange" onclick="saveProfile()">Zapisz profil</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openModal(){document.getElementById('overlay').classList.add('open');}
+function closeModal(){document.getElementById('overlay').classList.remove('open');document.getElementById('eId').value='';}
+
+function editProfile(p){
+  document.getElementById('mTitle').textContent='Edytuj profil';
+  document.getElementById('eId').value=p.id;
+  document.getElementById('fCode').value=p.code;
+  document.getElementById('fName').value=p.name;
+  document.getElementById('fCat').value=p.category;
+  document.getElementById('fWidth').value=p.width_mm;
+  document.getElementById('fPrice').value=p.price_mb;
+  document.getElementById('fMargin').value=p.margin_hurt;
+  document.getElementById('fImg').value=p.img_url||'';
+  document.getElementById('fDesc').value=p.description||'';
+  openModal();
+}
+
+async function saveProfile(){
+  const id=document.getElementById('eId').value;
+  const body={
+    code:document.getElementById('fCode').value.trim(),
+    name:document.getElementById('fName').value.trim(),
+    category:document.getElementById('fCat').value,
+    width_mm:parseFloat(document.getElementById('fWidth').value)||0,
+    price_mb:parseFloat(document.getElementById('fPrice').value)||0,
+    margin_hurt:parseFloat(document.getElementById('fMargin').value)||40,
+    img_url:document.getElementById('fImg').value.trim(),
+    description:document.getElementById('fDesc').value.trim(),
+    sort_order:0,active:1,
+  };
+  const res=await fetch(id?`/api/profiles/${id}`:'/api/profiles',
+    {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await res.json();
+  if(d.ok){closeModal();location.reload();}
+  else alert('Błąd: '+(d.error||''));
+}
+
+async function delProfile(id,code){
+  if(!confirm(`Usunąć profil ${code}?`))return;
+  const res=await fetch(`/api/profiles/${id}`,{method:'DELETE'});
+  const d=await res.json();
+  if(d.ok)document.getElementById(`row-${id}`)?.remove();
+  else alert('Błąd usuwania');
+}
+
+async function saveSettings(){
+  const data={};
+  document.querySelectorAll('.s-input').forEach(i=>{data[i.dataset.key]=i.value;});
+  const res=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  const d=await res.json();
+  const msg=document.getElementById('sMsg');
+  msg.textContent=d.ok?'✅ Zapisano':'❌ Błąd';
+  setTimeout(()=>msg.textContent='',2500);
+}
+</script>
+</body>
+</html>
