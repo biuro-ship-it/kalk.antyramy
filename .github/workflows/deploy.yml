@@ -27,8 +27,7 @@ jobs:
             --exclude='__pycache__/' \
             --exclude='*.pyc' \
             --exclude='.env' \
-            --exclude='data/cennik.db' \
-            --exclude='data/*.zip' \
+            --exclude='data/' \
             --exclude='stary/' \
             --exclude='.venv/' \
             --exclude='mockup-ui.html' \

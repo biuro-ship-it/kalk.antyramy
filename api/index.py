@@ -19,14 +19,14 @@ BASE_DIR = Path(__file__).parent.parent
 STATIC_DIR = BASE_DIR / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
+# Schemat bazy tworzymy przy imporcie modułu, NIE w zdarzeniu startup.
+# Passenger uruchamia aplikację przez a2wsgi (ASGI->WSGI), który nie obsługuje
+# protokołu lifespan ASGI — zdarzenia @app.on_event("startup") nigdy się nie wykonują.
+init_db()
+
 app = FastAPI(docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
 
 
 @app.exception_handler(Exception)
