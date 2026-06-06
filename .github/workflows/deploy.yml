@@ -32,6 +32,8 @@ jobs:
             --exclude='.venv/' \
             --exclude='mockup-ui.html' \
             --exclude='.github/' \
+            --exclude='tests/' \
+            --exclude='requirements-dev.txt' \
             --exclude='static/' \
             ./ Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_python/
 

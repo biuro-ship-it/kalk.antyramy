@@ -72,7 +72,7 @@ def calculate_price(
     vat         = float(settings.get("vat", 23))
 
     # ── marże per element ────────────────────────────────────────────
-    margin_front  = float(settings.get("plexsa_price_m2" if is_pleksa else "margin_glass", 30))
+    margin_front  = float(settings.get("margin_plexsa" if is_pleksa else "margin_glass", 30))
     margin_back   = float(settings.get("margin_back", 20))
     margin_pp     = float(settings.get("margin_pp", 30))
     margin_frame  = float(profile.get("margin_hurt", 40))   # marża listwy z profilu

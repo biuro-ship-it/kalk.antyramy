@@ -83,8 +83,7 @@ def _is_admin(request: Request) -> bool:
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "profiles": _profiles(),
         "is_admin": _is_admin(request),
     })
@@ -133,8 +132,7 @@ async def calculate(
         margin_exceptions=exc, mode=mode,
     )
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "results": results,
         "profile": profile,
         "profiles": _profiles(),
@@ -305,14 +303,14 @@ async def make_archive(request: Request, note: str = Form("")):
 
 @app.get("/admin/login", response_class=HTMLResponse)
 async def admin_login(request: Request):
-    return templates.TemplateResponse("admin/login.html", {"request": request, "error": ""})
+    return templates.TemplateResponse(request, "admin/login.html", {"error": ""})
 
 
 @app.post("/admin/login")
 async def admin_login_post(request: Request, password: str = Form(...)):
     if not verify_password(password):
-        return templates.TemplateResponse("admin/login.html", {
-            "request": request, "error": "Nieprawidłowe hasło"
+        return templates.TemplateResponse(request, "admin/login.html", {
+            "error": "Nieprawidłowe hasło"
         })
     token = make_session_token(password)
     response = RedirectResponse("/admin", status_code=303)
@@ -331,8 +329,7 @@ async def admin_logout():
 async def admin_panel(request: Request):
     if not _is_admin(request):
         return RedirectResponse("/admin/login", status_code=303)
-    return templates.TemplateResponse("admin/panel.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin/panel.html", {
         "profiles": _profiles(),
         "settings": _settings(),
         "archives": list_archives(),

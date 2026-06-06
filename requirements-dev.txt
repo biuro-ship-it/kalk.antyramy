@@ -1,0 +1,4 @@
+# Zależności wyłącznie do testów (nie instalowane na produkcji).
+# Uruchomienie: pip install -r requirements.txt -r requirements-dev.txt && pytest
+pytest==9.0.3
+httpx==0.28.1
