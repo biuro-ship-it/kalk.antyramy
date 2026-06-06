@@ -6,8 +6,12 @@
 <title>Wycena — Antyramy.eu</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Antyramy">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Antyramy Kalkulator">
 <meta name="theme-color" content="#0f172a">
-<link rel="apple-touch-icon" href="https://godek.eu/upload/elogo6.jpg">
+<link rel="apple-touch-icon" sizes="180x180" href="https://godek.eu/upload/elogo6.jpg">
 <link rel="icon" type="image/jpeg" href="https://godek.eu/upload/elogo6.jpg">
 <style>
 :root{--bg:#f8fafc;--bg2:#fff;--bg3:#f1f5f9;--border:rgba(0,0,0,.1);--border2:rgba(0,0,0,.2);--text:#0f172a;--text2:#475569;--text3:#94a3b8;--accent:#2563eb;--accent-bg:#eff6ff;--accent-border:#bfdbfe;--tile-ab:#eff6ff;--tile-ac:#2563eb;--success:#16a34a;--success-bg:#f0fdf4;--nav-bg:rgba(255,255,255,.95);--badge:#e2e8f0;--badge-t:#475569;}
@@ -407,6 +411,13 @@ async function saveMargins(){
     btn.textContent=d.ok?'✅ Zapisano!':'❌ Błąd';
   }catch{btn.textContent='❌ Błąd sieci';}
   setTimeout(()=>btn.textContent='💾 Zapisz zmiany',2000);
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .catch(err => console.log('SW error:', err));
+  });
 }
 </script>
 </body>

@@ -267,10 +267,21 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
 @app.get("/manifest.json")
 async def manifest():
     return JSONResponse({
-        "short_name": "Antyramy", "name": "Antyramy.eu Kalkulator",
-        "icons": [{"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg"}],
-        "start_url": "/", "display": "standalone",
-        "theme_color": "#0f172a", "background_color": "#ffffff",
+        "short_name": "Antyramy",
+        "name": "Antyramy.eu — Kalkulator Ramek",
+        "description": "Wycena ramek fotograficznych i obrazowych",
+        "icons": [
+            {"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any maskable"},
+            {"src": "https://godek.eu/upload/elogo6.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any maskable"},
+        ],
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait",
+        "theme_color": "#0f172a",
+        "background_color": "#ffffff",
+        "categories": ["business", "productivity"],
+        "lang": "pl",
     }, headers={"Content-Type": "application/manifest+json"})
 
 

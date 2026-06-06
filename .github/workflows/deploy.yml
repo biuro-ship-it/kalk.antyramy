@@ -38,6 +38,7 @@ jobs:
       - name: Deploy static files
         run: |
           rsync -avz --delete \
+            --exclude='images/' \
             static/ \
             Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_python/public/static/
 
