@@ -5,7 +5,7 @@ Baza jest tymczasowa (patrz conftest.py) i pusta — bez profili.
 from fastapi.testclient import TestClient
 
 from api.auth import set_password
-from api.index import app
+from api.index import BASE_DIR, app
 
 client = TestClient(app)
 
@@ -62,3 +62,35 @@ def test_admin_login_flow():
     ok = fresh.post("/admin/login", data={"password": "tajne123"}, follow_redirects=False)
     assert ok.status_code == 303
     assert "kalk_admin" in ok.headers.get("set-cookie", "")
+
+
+def _admin_client() -> TestClient:
+    c = TestClient(app)
+    set_password("tajne123")
+    c.post("/admin/login", data={"password": "tajne123"})
+    return c
+
+
+def test_upload_image_rejects_over_1mb():
+    c = _admin_client()
+    big = b"x" * (1024 * 1024 + 1)  # 1 MB + 1 bajt
+    res = c.post("/api/upload-image", files={"file": ("duzy.png", big, "image/png")})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
+    assert "1 MB" in body["error"]
+
+
+def test_upload_image_accepts_small_png():
+    c = _admin_client()
+    small = b"x" * 1024  # 1 KB
+    res = c.post("/api/upload-image", files={"file": ("maly.png", small, "image/png")})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["url"].startswith("/static/images/")
+
+    # sprzątanie: usuń realnie zapisany plik
+    saved = BASE_DIR / body["url"].lstrip("/")
+    if saved.exists():
+        saved.unlink()

@@ -5,7 +5,6 @@ Uruchamiana przez Phusion Passenger (passenger_wsgi.py) na mydevil.net
 from pathlib import Path
 from typing import Optional
 
-import shutil
 import uuid
 
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile
@@ -238,6 +237,7 @@ async def change_password(request: Request, new_password: str = Form(...)):
 # ── upload zdjęcia ────────────────────────────────────────────────────────────
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_UPLOAD_BYTES = 1 * 1024 * 1024  # 1 MB
 IMAGES_DIR = BASE_DIR / "static" / "images"
 
 @app.post("/api/upload-image")
@@ -249,12 +249,14 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
     if ext not in ALLOWED_EXTENSIONS:
         return JSONResponse({"ok": False, "error": f"Niedozwolony typ pliku. Dozwolone: {', '.join(ALLOWED_EXTENSIONS)}"})
 
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"ok": False, "error": "Plik za duży (max 1 MB)"})
+
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{ext}"
     dest = IMAGES_DIR / filename
-
-    with dest.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+    dest.write_bytes(content)
 
     url = f"/static/images/{filename}"
     return JSONResponse({"ok": True, "url": url})
