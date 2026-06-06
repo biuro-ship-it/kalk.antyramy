@@ -1,6 +1,7 @@
 """
 Logika obliczania cen ramek.
-Odizolowana od FastAPI — łatwa do testowania.
+Każdy element materiałowy ma własną marżę ustawianą globalnie.
+Marża listwy pochodzi z profilu (margin_hurt).
 """
 from typing import Optional
 
@@ -25,6 +26,12 @@ FORMATS_CONFIG: dict = {
 LABOR_KEY = {"small": "labor_small", "medium": "labor_medium", "large": "labor_large"}
 
 
+def _apply_margin(cost: float, margin_pct: float) -> float:
+    """Przelicza koszt zakupu na cenę sprzedaży z marżą."""
+    div = 1 - margin_pct / 100
+    return cost / div if div > 0 else cost
+
+
 def calculate_price(
     *,
     format_name: str,
@@ -33,7 +40,6 @@ def calculate_price(
     category: str,
     front_type: str,
     with_pp: bool,
-    margin_override: Optional[float],
     labor_override: Optional[float],
     mode: str = "wholesale",
 ) -> dict:
@@ -43,9 +49,10 @@ def calculate_price(
     w, h, s_cat, p_cat, clip_count, hook_count = FORMATS_CONFIG[format_name]
 
     s_width      = float(profile.get("width_mm", 0))
-    frame_margin = float(settings.get("frame_margin_mm", 8))
+    odpad        = 8  # stałe 8 cm odpadu na narożniki
 
-    len_m   = (2 * (w + h) + frame_margin * s_width / 10) / 100
+    # długość listwy w metrach: 2*(wys+dł) + 8*szer_listwy_cm
+    len_m   = (2 * (w + h) + odpad * s_width / 10) / 100
     area_m2 = (w * h) / 10000
 
     is_antyrama  = category == "antyrama"
@@ -53,53 +60,73 @@ def calculate_price(
     is_sama_rama = front_type == "sama_rama"
     is_pleksa    = front_type == "pleksa"
 
-    glass_p = float(settings.get("plexsa_price_m2" if is_pleksa else "glass_price_m2", 0))
-    back_p  = float(settings.get("back_price_m2", 0))
-    clip_p  = float(settings.get("clip_price", 0))
-    hook_p  = float(settings.get("hook_price", 0))
-    alu_kit = float(settings.get("alu_kit_price", 0))
-    pp_p    = float(settings.get("pp_price_m2", 0))
-    vat     = float(settings.get("vat", 23))
-    mb_p    = float(profile.get("price_mb", 0))
+    # ── ceny zakupu ──────────────────────────────────────────────────
+    front_key   = "plexsa_price_m2" if is_pleksa else "glass_price_m2"
+    front_cost  = float(settings.get(front_key, 0))
+    back_cost   = float(settings.get("back_price_m2", 0))
+    clip_cost   = float(settings.get("clip_price", 0))
+    hook_cost   = float(settings.get("hook_price", 0))
+    alu_kit_c   = float(settings.get("alu_kit_price", 0))
+    pp_cost     = float(settings.get("pp_price_m2", 0))
+    mb_cost     = float(profile.get("price_mb", 0))
+    vat         = float(settings.get("vat", 23))
 
-    if is_sama_rama:
-        material = 0.0
-    else:
-        material = area_m2 * glass_p + area_m2 * back_p
+    # ── marże per element ────────────────────────────────────────────
+    margin_front  = float(settings.get("plexsa_price_m2" if is_pleksa else "margin_glass", 30))
+    margin_back   = float(settings.get("margin_back", 20))
+    margin_pp     = float(settings.get("margin_pp", 30))
+    margin_frame  = float(profile.get("margin_hurt", 40))   # marża listwy z profilu
+    margin_alu    = float(settings.get("margin_alu_kit", 20))
+    margin_clips  = float(settings.get("margin_clips", 20))
+
+    # ── kalkulacja per element ze swoją marżą ────────────────────────
+    net = 0.0
+
+    if not is_sama_rama:
+        net += _apply_margin(area_m2 * front_cost, margin_front)
+        net += _apply_margin(area_m2 * back_cost,  margin_back)
 
     if is_antyrama:
         if not is_sama_rama:
-            material += clip_count * clip_p + hook_count * hook_p
+            net += _apply_margin(clip_count * clip_cost + hook_count * hook_cost, margin_clips)
     elif is_alu:
-        material += len_m * mb_p + alu_kit
+        net += _apply_margin(len_m * mb_cost, margin_frame)
+        net += _apply_margin(alu_kit_c, margin_alu)
     else:
-        material += len_m * mb_p
-        if not is_sama_rama and s_cat:
-            material += float(settings.get(f"support_{s_cat}", 0))
+        net += _apply_margin(len_m * mb_cost, margin_frame)
 
     if with_pp and not is_sama_rama:
-        material += area_m2 * pp_p
+        net += _apply_margin(area_m2 * pp_cost, margin_pp)
 
+    # ── robocizna (bez marży — to koszt usługi) ──────────────────────
     base_labor_key = LABOR_KEY.get(p_cat) if p_cat else None
     base_labor = 0.0 if is_antyrama else float(settings.get(base_labor_key or "", 0))
-    base_margin = float(profile.get("margin_hurt", 40))
+    labor = labor_override if labor_override is not None else base_labor
+    net += labor
 
-    margin = margin_override if margin_override is not None else base_margin
-    labor  = labor_override  if labor_override  is not None else base_labor
-
-    total_cost = material + labor
-    div   = 1 - margin / 100
-    net   = total_cost / div if div > 0 else total_cost
     gross = net * (1 + vat / 100)
+
+    # koszt zakupu do info (bez marż)
+    material_cost = 0.0
+    if not is_sama_rama:
+        material_cost += area_m2 * front_cost + area_m2 * back_cost
+    if is_antyrama and not is_sama_rama:
+        material_cost += clip_count * clip_cost + hook_count * hook_cost
+    elif is_alu:
+        material_cost += len_m * mb_cost + alu_kit_c
+    elif not is_antyrama:
+        material_cost += len_m * mb_cost
+    if with_pp and not is_sama_rama:
+        material_cost += area_m2 * pp_cost
 
     return {
         "format":   format_name,
         "net":      round(net, 2),
         "gross":    round(gross, 2),
-        "material": round(material, 2),
+        "material": round(material_cost, 2),
         "labor":    round(labor, 2),
-        "profit":   round(net - total_cost, 2),
-        "margin":   round(margin, 1),
+        "profit":   round(net - material_cost - labor, 2),
+        "margin":   round(margin_frame, 1),
         "vat":      vat,
     }
 
@@ -125,7 +152,6 @@ def calculate_all(
             category=category,
             front_type=front_type,
             with_pp=with_pp,
-            margin_override=exc.get("margin"),
             labor_override=exc.get("labor"),
             mode=mode,
         ))

@@ -59,7 +59,6 @@ def init_db() -> None:
         );
 
         INSERT OR IGNORE INTO settings VALUES ('vat', '23');
-        INSERT OR IGNORE INTO settings VALUES ('frame_margin_mm', '8');
         INSERT OR IGNORE INTO settings VALUES ('glass_price_m2', '28.00');
         INSERT OR IGNORE INTO settings VALUES ('plexsa_price_m2', '55.00');
         INSERT OR IGNORE INTO settings VALUES ('back_price_m2', '12.00');
@@ -70,5 +69,11 @@ def init_db() -> None:
         INSERT OR IGNORE INTO settings VALUES ('labor_small', '2.50');
         INSERT OR IGNORE INTO settings VALUES ('labor_medium', '4.00');
         INSERT OR IGNORE INTO settings VALUES ('labor_large', '6.50');
+        INSERT OR IGNORE INTO settings VALUES ('margin_glass', '30');
+        INSERT OR IGNORE INTO settings VALUES ('margin_plexsa', '45');
+        INSERT OR IGNORE INTO settings VALUES ('margin_back', '20');
+        INSERT OR IGNORE INTO settings VALUES ('margin_pp', '30');
+        INSERT OR IGNORE INTO settings VALUES ('margin_alu_kit', '20');
+        INSERT OR IGNORE INTO settings VALUES ('margin_clips', '20');
         INSERT OR IGNORE INTO settings VALUES ('admin_password_hash', '');
         """)

@@ -97,7 +97,7 @@ async def refresh():
 @app.post("/calculate", response_class=HTMLResponse)
 async def calculate(
     request: Request,
-    profile_id: Optional[int] = Form(None),
+    profile_id: Optional[str] = Form(None),
     category: str = Form("drewno"),
     front_type: str = Form("szklo"),
     with_pp: Optional[str] = Form(None),
@@ -114,10 +114,11 @@ async def calculate(
             "img_url": "", "description": "",
         }
     else:
-        if not profile_id:
+        pid = int(profile_id) if profile_id and str(profile_id).strip() else None
+        if not pid:
             return RedirectResponse("/", status_code=303)
         with get_conn() as conn:
-            row = conn.execute("SELECT * FROM profiles WHERE id=? AND active=1", (profile_id,)).fetchone()
+            row = conn.execute("SELECT * FROM profiles WHERE id=? AND active=1", (pid,)).fetchone()
         if not row:
             return RedirectResponse("/", status_code=303)
         profile = dict(row)

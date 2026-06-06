@@ -208,7 +208,8 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
         </div>
       </div>
 
-      <button type="submit" class="calc-btn">Oblicz cenę &#8594;</button>
+      <div id="formError" style="display:none;background:#fef2f2;border:.5px solid #fca5a5;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:700;color:#b91c1c;margin-top:12px"></div>
+      <button type="submit" class="calc-btn" onclick="return validateForm(event)">Oblicz cenę &#8594;</button>
     </div>
 
     {% if results %}
@@ -367,6 +368,23 @@ function updatePreview(){
     name.textContent='Wybierz profil powyżej';
     desc.textContent='Zdjęcie przekroju i opis pojawi się tutaj';
   }
+}
+
+function validateForm(e){
+  const cat = document.querySelector('.cat-radio:checked')?.value;
+  const errEl = document.getElementById('formError');
+  if(cat !== 'antyrama'){
+    const sel = document.getElementById('profileSelect');
+    if(!sel || !sel.value){
+      e.preventDefault();
+      errEl.style.display='block';
+      errEl.textContent='Wybierz profil listwy przed obliczeniem ceny.';
+      sel.focus();
+      return false;
+    }
+  }
+  errEl.style.display='none';
+  return true;
 }
 
 async function saveMargins(){

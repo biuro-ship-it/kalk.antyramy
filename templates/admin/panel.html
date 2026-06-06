@@ -95,23 +95,53 @@ textarea{resize:vertical;min-height:80px;}
   <!-- USTAWIENIA GLOBALNE -->
   <div class="section">
     <div class="section-title">&#9881; Ustawienia globalne</div>
-    <div class="settings-grid">
-      {% set labels = {
-        'vat':'VAT (%)', 'frame_margin_mm':'Naddatek ramy (mm)',
-        'glass_price_m2':'Cena szkła (zł/m²)', 'plexsa_price_m2':'Cena pleksy (zł/m²)',
-        'back_price_m2':'Cena tylnej (zł/m²)', 'pp_price_m2':'Cena PP (zł/m²)',
-        'hook_price':'Zaczep (zł)', 'clip_price':'Spinka (zł)',
-        'alu_kit_price':'Montaż alu (zł)',
-        'labor_small':'Praca mała (zł)', 'labor_medium':'Praca średnia (zł)', 'labor_large':'Praca duża (zł)'
+
+    <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#3b82f6;margin-bottom:10px">Ceny zakupu materiałów</p>
+    <div class="settings-grid" style="margin-bottom:20px">
+      {% set ceny = {
+        'vat':'VAT (%)',
+        'glass_price_m2':'Szkło (zł/m²)', 'plexsa_price_m2':'Plexa (zł/m²)',
+        'back_price_m2':'Tył (zł/m²)', 'pp_price_m2':'Passe-partout (zł/m²)',
+        'hook_price':'Zaczep (zł/szt)', 'clip_price':'Spinka (zł/szt)',
+        'alu_kit_price':'Montaż alu (zł)'
       } %}
-      {% for key, lbl in labels.items() %}
+      {% for key, lbl in ceny.items() %}
       <div class="s-item">
         <div class="field-lbl">{{ lbl }}</div>
         <input type="number" step="0.01" data-key="{{ key }}" value="{{ settings.get(key,'') }}" class="s-input">
       </div>
       {% endfor %}
     </div>
-    <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+
+    <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#ea580c;margin-bottom:10px">Marże per element (%)</p>
+    <div class="settings-grid" style="margin-bottom:20px">
+      {% set marze = {
+        'margin_glass':'Marża szkło (%)', 'margin_plexsa':'Marża plexa (%)',
+        'margin_back':'Marża tył (%)', 'margin_pp':'Marża PP (%)',
+        'margin_alu_kit':'Marża montaż alu (%)', 'margin_clips':'Marża spinki/zaczepy (%)'
+      } %}
+      {% for key, lbl in marze.items() %}
+      <div class="s-item">
+        <div class="field-lbl">{{ lbl }}</div>
+        <input type="number" step="0.1" data-key="{{ key }}" value="{{ settings.get(key,'') }}" class="s-input">
+      </div>
+      {% endfor %}
+    </div>
+
+    <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#16a34a;margin-bottom:10px">Robocizna (zł) — bez marży</p>
+    <div class="settings-grid" style="margin-bottom:20px">
+      {% set praca = {
+        'labor_small':'Praca mała', 'labor_medium':'Praca średnia', 'labor_large':'Praca duża'
+      } %}
+      {% for key, lbl in praca.items() %}
+      <div class="s-item">
+        <div class="field-lbl">{{ lbl }}</div>
+        <input type="number" step="0.01" data-key="{{ key }}" value="{{ settings.get(key,'') }}" class="s-input">
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px">
       <button class="btn btn-green" onclick="saveSettings()">&#10003; Zapisz ustawienia</button>
       <span id="sMsg" style="font-size:11px;color:#64748b"></span>
     </div>
