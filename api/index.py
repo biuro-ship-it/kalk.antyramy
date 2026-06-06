@@ -5,7 +5,10 @@ Uruchamiana przez Phusion Passenger (passenger_wsgi.py) na mydevil.net
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Form, Request, Response
+import shutil
+import uuid
+
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -232,6 +235,31 @@ async def change_password(request: Request, new_password: str = Form(...)):
         return JSONResponse({"ok": False}, status_code=403)
     set_password(new_password)
     return RedirectResponse("/admin", status_code=303)
+
+
+# ── upload zdjęcia ────────────────────────────────────────────────────────────
+
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+IMAGES_DIR = BASE_DIR / "static" / "images"
+
+@app.post("/api/upload-image")
+async def upload_image(request: Request, file: UploadFile = File(...)):
+    if not _is_admin(request):
+        return JSONResponse({"ok": False, "error": "Brak autoryzacji"}, status_code=403)
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return JSONResponse({"ok": False, "error": f"Niedozwolony typ pliku. Dozwolone: {', '.join(ALLOWED_EXTENSIONS)}"})
+
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest = IMAGES_DIR / filename
+
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    url = f"/static/images/{filename}"
+    return JSONResponse({"ok": True, "url": url})
 
 
 # ── manifest PWA ──────────────────────────────────────────────────────────────

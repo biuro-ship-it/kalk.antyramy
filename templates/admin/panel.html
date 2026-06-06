@@ -215,7 +215,20 @@ textarea{resize:vertical;min-height:80px;}
         <div><div class="field-lbl">Cena /mb (zł)</div><input type="number" step="0.01" id="fPrice" value="0"></div>
         <div><div class="field-lbl">Marża hurt (%)</div><input type="number" step="0.5" id="fMargin" value="40"></div>
       </div>
-      <div><div class="field-lbl">URL zdjęcia</div><input type="text" id="fImg" placeholder="https://..."></div>
+      <div>
+        <div class="field-lbl">Zdjęcie przekroju</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="fImg" placeholder="https://... lub wgraj plik →" style="flex:1">
+          <label style="cursor:pointer;white-space:nowrap">
+            <input type="file" id="fImgFile" accept="image/*" style="display:none" onchange="uploadImage()">
+            <span class="btn btn-slate" onclick="document.getElementById('fImgFile').click()">&#128247; Wgraj</span>
+          </label>
+        </div>
+        <div id="imgPreview" style="margin-top:8px;display:none">
+          <img id="imgPreviewEl" src="" style="max-width:100%;max-height:120px;border-radius:8px;object-fit:cover">
+        </div>
+        <span id="uploadMsg" style="font-size:10px;color:#64748b"></span>
+      </div>
       <div><div class="field-lbl">Opis</div><textarea id="fDesc" placeholder="Opis widoczny przy wycenie..."></textarea></div>
     </div>
     <div class="modal-actions">
@@ -226,8 +239,41 @@ textarea{resize:vertical;min-height:80px;}
 </div>
 
 <script>
-function openModal(){document.getElementById('overlay').classList.add('open');}
-function closeModal(){document.getElementById('overlay').classList.remove('open');document.getElementById('eId').value='';}
+function openModal(){
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('imgPreview').style.display='none';
+  document.getElementById('uploadMsg').textContent='';
+}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('eId').value='';
+  document.getElementById('fImgFile').value='';
+  document.getElementById('imgPreview').style.display='none';
+}
+
+async function uploadImage(){
+  const file = document.getElementById('fImgFile').files[0];
+  if(!file) return;
+  const msg = document.getElementById('uploadMsg');
+  msg.textContent = '⏳ Wgrywanie...';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch('/api/upload-image', {method:'POST', body:fd});
+    const d = await res.json();
+    if(d.ok){
+      document.getElementById('fImg').value = d.url;
+      const prev = document.getElementById('imgPreview');
+      document.getElementById('imgPreviewEl').src = d.url;
+      prev.style.display = 'block';
+      msg.textContent = '✅ Wgrano';
+    } else {
+      msg.textContent = '❌ ' + (d.error||'Błąd wgrywania');
+    }
+  } catch {
+    msg.textContent = '❌ Błąd sieci';
+  }
+}
 
 function editProfile(p){
   document.getElementById('mTitle').textContent='Edytuj profil';
@@ -240,6 +286,10 @@ function editProfile(p){
   document.getElementById('fMargin').value=p.margin_hurt;
   document.getElementById('fImg').value=p.img_url||'';
   document.getElementById('fDesc').value=p.description||'';
+  if(p.img_url){
+    document.getElementById('imgPreviewEl').src=p.img_url;
+    document.getElementById('imgPreview').style.display='block';
+  }
   openModal();
 }
 
