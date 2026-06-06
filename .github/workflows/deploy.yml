@@ -11,21 +11,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /domains/kalk.antyramy.eu/public_html/
-          local-dir: ./
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/__pycache__/**
-            **/.env
-            **/data/cennik.db
-            **/data/*.zip
-            **/stary/**
-            **/.venv/**
-            **/mockup-ui.html
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H s61.mydevil.net >> ~/.ssh/known_hosts
+
+      - name: Deploy via rsync over SSH
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.gitattributes' \
+            --exclude='.gitignore' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            --exclude='.env' \
+            --exclude='data/cennik.db' \
+            --exclude='data/*.zip' \
+            --exclude='stary/' \
+            --exclude='.venv/' \
+            --exclude='mockup-ui.html' \
+            --exclude='.github/' \
+            ./ Pluszek@s61.mydevil.net:/home/Pluszek/domains/kalk.antyramy.eu/public_html/
+
+      - name: Install dependencies & restart app
+        run: |
+          ssh Pluszek@s61.mydevil.net << 'EOF'
+            cd ~/domains/kalk.antyramy.eu/public_html
+            pip3 install -r requirements.txt --user -q
+            touch passenger_wsgi.py
+          EOF

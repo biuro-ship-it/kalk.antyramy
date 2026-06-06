@@ -10,6 +10,8 @@ api/credentials.json
 info*/
 info/
 stary/
+temp/
+
 
 # baza danych i archiwa — nie wchodzą do repo
 data/cennik.db
