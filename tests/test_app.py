@@ -102,6 +102,64 @@ def test_save_margins_forbidden_without_admin():
     assert res.status_code == 403
 
 
+def _antyrama_pid(code: str) -> int:
+    with get_conn() as conn:
+        return conn.execute("SELECT id FROM profiles WHERE code=?", (code,)).fetchone()["id"]
+
+
+def test_calculate_antyrama_renders_real_profile_id():
+    # Regresja: antyrama miała syntetyczne id=0, więc zapis marży per format
+    # leciał z profile_id=0 i łamał FK (500). Teraz front dostaje realne id.
+    res = client.post(
+        "/calculate",
+        data={"category": "antyrama", "front_type": "szklo", "mode": "wholesale"},
+    )
+    assert res.status_code == 200
+    pid = _antyrama_pid("ANTYRAMA_GLASS")
+    assert pid > 0
+    assert f"const PROFILE_ID = {pid};" in res.text
+
+
+def test_calculate_antyrama_glass_and_plexa_use_distinct_profiles():
+    # Szkło i pleksa muszą trafiać na różne profile, żeby marże były niezależne.
+    glass = client.post(
+        "/calculate", data={"category": "antyrama", "front_type": "szklo"}
+    )
+    plexa = client.post(
+        "/calculate", data={"category": "antyrama", "front_type": "pleksa"}
+    )
+    glass_pid = _antyrama_pid("ANTYRAMA_GLASS")
+    plexa_pid = _antyrama_pid("ANTYRAMA_PLEXA")
+    assert glass_pid != plexa_pid
+    assert f"const PROFILE_ID = {glass_pid};" in glass.text
+    assert f"const PROFILE_ID = {plexa_pid};" in plexa.text
+
+
+def test_save_margins_antyrama_glass_and_plexa_persist_independently():
+    # Regresja: marża per format antyramy zwracała 500 (FOREIGN KEY constraint).
+    # Dodatkowo: szkło i pleksa mają osobne marże dla tego samego formatu.
+    c = _admin_client()
+    glass_pid = _antyrama_pid("ANTYRAMA_GLASS")
+    plexa_pid = _antyrama_pid("ANTYRAMA_PLEXA")
+
+    res = c.post("/api/save-margins", json={"updates": [
+        {"mode": "wholesale", "profile_id": glass_pid, "format": "30x40", "margin": 60, "labor": 0},
+        {"mode": "wholesale", "profile_id": plexa_pid, "format": "30x40", "margin": 45, "labor": 0},
+    ]})
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+    with get_conn() as conn:
+        glass_margin = conn.execute(
+            "SELECT margin FROM format_margins WHERE profile_id=? AND format='30x40'", (glass_pid,)
+        ).fetchone()["margin"]
+        plexa_margin = conn.execute(
+            "SELECT margin FROM format_margins WHERE profile_id=? AND format='30x40'", (plexa_pid,)
+        ).fetchone()["margin"]
+    assert glass_margin == 60
+    assert plexa_margin == 45
+
+
 def test_upload_image_rejects_over_1mb():
     c = _admin_client()
     big = b"x" * (1024 * 1024 + 1)  # 1 MB + 1 bajt

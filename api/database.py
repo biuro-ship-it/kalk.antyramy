@@ -76,4 +76,14 @@ def init_db() -> None:
         INSERT OR IGNORE INTO settings VALUES ('margin_alu_kit', '20');
         INSERT OR IGNORE INTO settings VALUES ('margin_clips', '20');
         INSERT OR IGNORE INTO settings VALUES ('admin_password_hash', '');
+
+        -- Wirtualne profile antyramy: dają realne, niezerowe id wymagane przez
+        -- klucz obcy format_margins.profile_id. Osobny wiersz dla szkła i pleksy
+        -- pozwala trzymać niezależne marże per format dla każdego wypełnienia.
+        -- active=0 — nie pojawiają się w liście profili (WHERE active=1)
+        -- ani w dropdownie wyboru listwy.
+        INSERT OR IGNORE INTO profiles (code, name, category, active)
+            VALUES ('ANTYRAMA_GLASS', 'Antyrama (szkło)', 'antyrama', 0);
+        INSERT OR IGNORE INTO profiles (code, name, category, active)
+            VALUES ('ANTYRAMA_PLEXA', 'Antyrama (pleksa)', 'antyrama', 0);
         """)

@@ -108,12 +108,16 @@ async def calculate(
     is_admin = _is_admin(request)
 
     if category == "antyrama":
-        profile = {
-            "id": 0, "code": "ANTYRAMA", "name": "Antyrama",
-            "category": "antyrama", "width_mm": 0, "price_mb": 0,
-            "margin_hurt": _num(s, "margin_antyrama", 35),
-            "img_url": "", "description": "",
-        }
+        # Osobny wirtualny wiersz (active=0) dla szkła i pleksy — niezerowe id
+        # potrzebne do zapisu marż per format (FK format_margins.profile_id),
+        # a różne id daje niezależne marże dla każdego wypełnienia. Marżę bazową
+        # bierzemy z ustawień, nie z kolumny margin_hurt profilu.
+        antyrama_code = "ANTYRAMA_PLEXA" if front_type == "pleksa" else "ANTYRAMA_GLASS"
+        with get_conn() as conn:
+            row = conn.execute("SELECT * FROM profiles WHERE code=?", (antyrama_code,)).fetchone()
+        profile = dict(row)
+        profile["margin_hurt"] = _num(s, "margin_antyrama", 35)
+        profile["code"] = "ANTYRAMA"  # czytelny nagłówek karty zamiast ANTYRAMA_GLASS/PLEXA
     else:
         pid = int(profile_id) if profile_id and str(profile_id).strip() else None
         if not pid:
