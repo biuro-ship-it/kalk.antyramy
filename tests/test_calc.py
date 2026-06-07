@@ -20,11 +20,12 @@ def _profile(**override):
     return base
 
 
-def test_apply_margin_full_margin_has_no_zero_division():
-    # marża 100% → dzielnik (1 - 1) = 0; zabezpieczenie: zwraca koszt bez dzielenia
-    assert _apply_margin(100, 100) == 100
+def test_apply_margin_clamped_below_100():
     # marża 30% → 70 / 0.70 = 100
     assert _apply_margin(70, 30) == pytest.approx(100)
+    # marża >=100% jest ograniczana do 99% (brak dzielenia przez zero ani zaniżania do kosztu)
+    assert _apply_margin(50, 100) == _apply_margin(50, 99)
+    assert _apply_margin(50, 100) == pytest.approx(50 / 0.01)
 
 
 def test_calculate_price_drewno_szklo_happy_path():
@@ -34,6 +35,7 @@ def test_calculate_price_drewno_szklo_happy_path():
     #   listwa = 1.64*10 / 0.60 = 27.33
     #   praca  = 6.50 (bez marży)  → net = 40.43
     # koszt zakupu (material): 3.36 + 1.44 + 16.40 = 21.20
+    # realny narzut na materiały: (1 - 21.20/33.93) ≈ 37.5%
     result = calculate_price(
         format_name="30x40",
         profile=_profile(),
@@ -48,7 +50,7 @@ def test_calculate_price_drewno_szklo_happy_path():
     assert result["labor"] == 6.5
     assert result["net"] == 40.43
     assert result["gross"] == pytest.approx(result["net"] * 1.23, abs=0.05)
-    assert result["margin"] == 40.0
+    assert result["margin"] == pytest.approx(37.5, abs=0.1)
 
 
 def test_calculate_price_unknown_format_returns_empty():
@@ -114,6 +116,46 @@ def test_empty_setting_falls_back_to_default():
     )
     assert result  # nie rzuca wyjątku, zwraca wynik
     assert result["net"] > 0
+
+
+def test_per_format_margin_override_is_global_markup():
+    # Marża per format (override) = jeden narzut na CAŁĄ pozycję, zamiast marż per element.
+    result = calculate_price(
+        format_name="30x40", profile=_profile(), settings=DEFAULT_SETTINGS,
+        category="drewno", front_type="szklo", with_pp=False,
+        labor_override=None, margin_override=80,
+    )
+    # materiał 21.20 z narzutem 80% → 21.20/0.20 = 106.0; + praca 6.50 = 112.50
+    assert result["net"] == pytest.approx(112.5, abs=0.05)
+    assert result["margin"] == pytest.approx(80.0, abs=0.1)
+
+
+def test_per_format_margin_override_reaches_calculate_all():
+    # Regresja: zapisana marża per format MUSI wpływać na cenę (wcześniej była ignorowana).
+    base = dict(profile=_profile(), settings=DEFAULT_SETTINGS, category="drewno",
+                front_type="szklo", with_pp=False)
+    plain = calculate_all(margin_exceptions={}, **base)
+    overridden = calculate_all(margin_exceptions={"wholesale__30x40": {"margin": 80}}, **base)
+    g0 = next(r for r in plain if r["format"] == "30x40")
+    g1 = next(r for r in overridden if r["format"] == "30x40")
+    assert g1["net"] != g0["net"]
+    assert g1["margin"] == pytest.approx(80.0, abs=0.1)
+
+
+def test_antyrama_uses_configured_margin():
+    # Marża antyramy (margin_hurt profilu) realnie wpływa na cenę (jeden narzut na pozycję).
+    settings = {**DEFAULT_SETTINGS, "clip_price": 0.6, "hook_price": 0.4}
+    low = calculate_price(
+        format_name="30x40", profile=_profile(margin_hurt=20), settings=settings,
+        category="antyrama", front_type="szklo", with_pp=False, labor_override=None,
+    )
+    high = calculate_price(
+        format_name="30x40", profile=_profile(margin_hurt=60), settings=settings,
+        category="antyrama", front_type="szklo", with_pp=False, labor_override=None,
+    )
+    assert high["net"] > low["net"]
+    assert low["margin"] == pytest.approx(20.0, abs=0.1)
+    assert high["margin"] == pytest.approx(60.0, abs=0.1)
 
 
 def test_calculate_all_covers_every_format():

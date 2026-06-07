@@ -38,7 +38,8 @@ def _num(settings: dict, key: str, default: float) -> float:
 
 
 def _apply_margin(cost: float, margin_pct: float) -> float:
-    """Przelicza koszt zakupu na cenę sprzedaży z marżą."""
+    """Przelicza koszt zakupu na cenę sprzedaży z marżą (ograniczoną do <100%)."""
+    margin_pct = min(margin_pct, 99.0)  # marża >=100% zaniżyłaby cenę do kosztu
     div = 1 - margin_pct / 100
     return cost / div if div > 0 else cost
 
@@ -52,6 +53,7 @@ def calculate_price(
     front_type: str,
     with_pp: bool,
     labor_override: Optional[float],
+    margin_override: Optional[float] = None,
     mode: str = "wholesale",
 ) -> dict:
     if format_name not in FORMATS_CONFIG:
@@ -90,45 +92,45 @@ def calculate_price(
     margin_alu    = _num(settings, "margin_alu_kit", 20)
     margin_clips  = _num(settings, "margin_clips", 20)
 
-    # ── kalkulacja per element ze swoją marżą ────────────────────────
-    net = 0.0
-
+    # ── składniki materiałowe: (koszt_zakupu, marża_domyślna_elementu) ──
+    components = []
     if not is_sama_rama:
-        net += _apply_margin(area_m2 * front_cost, margin_front)
-        net += _apply_margin(area_m2 * back_cost,  margin_back)
-
+        components.append((area_m2 * front_cost, margin_front))
+        components.append((area_m2 * back_cost,  margin_back))
     if is_antyrama:
         if not is_sama_rama:
-            net += _apply_margin(clip_count * clip_cost + hook_count * hook_cost, margin_clips)
+            components.append((clip_count * clip_cost + hook_count * hook_cost, margin_clips))
     elif is_alu:
-        net += _apply_margin(len_m * mb_cost, margin_frame)
-        net += _apply_margin(alu_kit_c, margin_alu)
+        components.append((len_m * mb_cost, margin_frame))
+        components.append((alu_kit_c, margin_alu))
     else:
-        net += _apply_margin(len_m * mb_cost, margin_frame)
-
+        components.append((len_m * mb_cost, margin_frame))
     if with_pp and not is_sama_rama:
-        net += _apply_margin(area_m2 * pp_cost, margin_pp)
+        components.append((area_m2 * pp_cost, margin_pp))
+
+    material_cost = sum(cost for cost, _ in components)
+
+    # ── narzut ───────────────────────────────────────────────────────
+    # 1) marża per format (override) = JEDEN narzut na całą pozycję
+    # 2) antyrama bez override = pojedyncza marża antyramy (margin_frame)
+    # 3) pozostałe = marże per element
+    if margin_override is not None:
+        net_materials = _apply_margin(material_cost, margin_override)
+    elif is_antyrama:
+        net_materials = _apply_margin(material_cost, margin_frame)
+    else:
+        net_materials = sum(_apply_margin(cost, m) for cost, m in components)
 
     # ── robocizna (bez marży — to koszt usługi) ──────────────────────
     base_labor_key = LABOR_KEY.get(p_cat) if p_cat else None
     base_labor = 0.0 if is_antyrama else _num(settings, base_labor_key or "", 0)
     labor = labor_override if labor_override is not None else base_labor
-    net += labor
 
+    net = net_materials + labor
     gross = net * (1 + vat / 100)
 
-    # koszt zakupu do info (bez marż)
-    material_cost = 0.0
-    if not is_sama_rama:
-        material_cost += area_m2 * front_cost + area_m2 * back_cost
-    if is_antyrama and not is_sama_rama:
-        material_cost += clip_count * clip_cost + hook_count * hook_cost
-    elif is_alu:
-        material_cost += len_m * mb_cost + alu_kit_c
-    elif not is_antyrama:
-        material_cost += len_m * mb_cost
-    if with_pp and not is_sama_rama:
-        material_cost += area_m2 * pp_cost
+    # realny narzut na materiały (do wyświetlenia)
+    effective_margin = (1 - material_cost / net_materials) * 100 if net_materials > 0 else 0.0
 
     return {
         "format":   format_name,
@@ -137,7 +139,7 @@ def calculate_price(
         "material": round(material_cost, 2),
         "labor":    round(labor, 2),
         "profit":   round(net - material_cost - labor, 2),
-        "margin":   round(margin_frame, 1),
+        "margin":   round(effective_margin, 1),
         "vat":      vat,
     }
 
@@ -164,6 +166,7 @@ def calculate_all(
             front_type=front_type,
             with_pp=with_pp,
             labor_override=exc.get("labor"),
+            margin_override=exc.get("margin"),
             mode=mode,
         ))
     return results
