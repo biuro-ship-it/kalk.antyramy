@@ -55,7 +55,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .profile-preview{background:var(--bg3);border:.5px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-height:58px;}
 .preview-icon{font-size:22px;flex-shrink:0;width:36px;text-align:center;}
-.preview-img{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;}
+.preview-img{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;cursor:zoom-in;}
 .preview-name{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text);letter-spacing:.06em;}
 .preview-desc{font-size:10px;color:var(--text2);margin-top:2px;}
 .select{width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:10px 12px;font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text);outline:none;cursor:pointer;}
@@ -85,9 +85,14 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 .format-badge{display:inline-block;background:var(--success-bg);color:var(--success);font-size:8px;font-weight:800;text-transform:uppercase;padding:2px 6px;border-radius:4px;margin-top:6px;}
 .results-layout{display:grid;grid-template-columns:1fr 220px;gap:14px;align-items:start;}
 .info-col{background:var(--bg2);border:.5px solid var(--border);border-radius:20px;padding:18px;}
-.info-img{width:100%;border-radius:9px;object-fit:cover;max-height:150px;margin-bottom:12px;}
+.info-img{width:100%;border-radius:9px;object-fit:cover;max-height:150px;margin-bottom:12px;cursor:zoom-in;}
 .info-img-placeholder{width:100%;border-radius:9px;background:var(--bg3);height:110px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;margin-bottom:12px;}
 .info-desc{font-size:11px;color:var(--text2);line-height:1.7;background:var(--accent-bg);border:.5px solid var(--accent-border);border-radius:8px;padding:11px 13px;}
+.lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:95%;max-height:95%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.lightbox-close{position:absolute;top:16px;right:20px;width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;font-size:26px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.lightbox-close:hover{background:rgba(255,255,255,.3);}
 .admin-bar{background:var(--bg3);border-top:.5px solid var(--border);border-radius:0 0 20px 20px;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
 .vat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--text3);}
 .save-btn{-webkit-appearance:none;appearance:none;background-color:#0f172a!important;color:#f1f5f9!important;border:none!important;border-radius:7px;padding:7px 13px;font-size:9px;font-weight:800;text-transform:uppercase;cursor:pointer;}
@@ -261,7 +266,8 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
       <div class="info-col no-print">
         <p class="section-label" style="margin-bottom:10px">Informacje o produkcie</p>
         {% if profile.img_url %}
-        <img src="{{ profile.img_url }}" class="info-img" alt="Przekrój listwy">
+        <img src="{{ profile.img_url }}" class="info-img" alt="Przekrój listwy"
+          onclick="openLightbox(this.src)">
         {% else %}
         <div class="info-img-placeholder">📷 zdjęcie przekroju</div>
         {% endif %}
@@ -283,6 +289,11 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 
   </form>
 </main>
+
+<div id="lightbox" class="lightbox no-print" onclick="closeLightbox()" aria-hidden="true">
+  <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Zamknij">&times;</button>
+  <img id="lightboxImg" src="" alt="Powiększone zdjęcie profilu">
+</div>
 
 <footer class="footer no-print">
   <div class="footer-inner">
@@ -364,7 +375,7 @@ function updatePreview(){
   const desc=document.getElementById('previewDesc');
   if(opt?.value){
     const img=opt.dataset.img;
-    icon.innerHTML=img?`<img src="${img}" class="preview-img" alt="">`:'🪵';
+    icon.innerHTML=img?`<img src="${img}" class="preview-img" alt="" onclick="openLightbox('${img}')">`:'🪵';
     name.textContent=opt.dataset.name||opt.text;
     desc.textContent=opt.dataset.desc||'';
   } else {
@@ -434,6 +445,20 @@ async function saveMargins(){
   btn.textContent='✅ Zapisano!';
   setTimeout(()=>btn.textContent='💾 Zapisz zmiany',2000);
 }
+
+function openLightbox(src){
+  if(!src) return;
+  const lb=document.getElementById('lightbox');
+  document.getElementById('lightboxImg').src=src;
+  lb.classList.add('open');
+  lb.setAttribute('aria-hidden','false');
+}
+function closeLightbox(){
+  const lb=document.getElementById('lightbox');
+  lb.classList.remove('open');
+  lb.setAttribute('aria-hidden','true');
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLightbox(); });
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
