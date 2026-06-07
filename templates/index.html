@@ -391,30 +391,47 @@ function validateForm(e){
   return true;
 }
 
+async function sendMargins(payload){
+  try{
+    const res=await fetch('/api/save-margins',{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    return res.status;
+  }catch(e){ return 0; }
+}
+
+function showSaveError(btn,status){
+  if(status===403){
+    btn.textContent='🔒 Zapis odrzucony — odśwież (Ctrl+Shift+R) i zaloguj ponownie';
+  }else if(status===0){
+    btn.textContent='❌ Błąd sieci';
+  }else{
+    btn.textContent='❌ Błąd zapisu ('+status+')';
+  }
+  setTimeout(()=>btn.textContent='💾 Zapisz zmiany',3000);
+}
+
 async function saveMargins(){
   const btn=document.getElementById('saveBtn');
   btn.textContent='⏳ Zapisywanie…';
-  const updates=[];
+  const rows=[];
   document.querySelectorAll('[data-type="margin"]').forEach(inp=>{
     const fmt=inp.dataset.fmt;
     const labor=document.querySelector(`[data-fmt="${fmt}"][data-type="labor"]`)?.value||0;
-    updates.push({mode:'wholesale',profile_id:PROFILE_ID,format:fmt,
+    rows.push({mode:'wholesale',profile_id:PROFILE_ID,format:fmt,
       margin:parseFloat(inp.value)||0,labor:parseFloat(labor)||0});
   });
-  try{
-    const res=await fetch('/api/save-margins',{method:'POST',credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({updates,profile_id:PROFILE_ID,
-        img_url:document.getElementById('adminImg')?.value||'',
-        description:document.getElementById('adminDesc')?.value||''})});
-    if(res.status===403){
-      btn.textContent='🔒 Sesja wygasła — logowanie…';
-      setTimeout(()=>location.href='/admin/login',1500);
-      return;
-    }
-    const d=await res.json();
-    btn.textContent=d.ok?'✅ Zapisano!':'❌ Błąd';
-  }catch{btn.textContent='❌ Błąd sieci';}
+  // Marże wysyłamy POJEDYNCZO — jedna duża paczka 15 wpisów jest blokowana
+  // przez zaporę serwera (mod_security/WAF). Małe żądania przechodzą.
+  for(const r of rows){
+    const status=await sendMargins({updates:[r]});
+    if(status!==200){ showSaveError(btn,status); return; }
+  }
+  // Zdjęcie i opis profilu zapisujemy osobno, jednym żądaniem.
+  const status=await sendMargins({profile_id:PROFILE_ID,
+    img_url:document.getElementById('adminImg')?.value||'',
+    description:document.getElementById('adminDesc')?.value||''});
+  if(status!==200){ showSaveError(btn,status); return; }
+  btn.textContent='✅ Zapisano!';
   setTimeout(()=>btn.textContent='💾 Zapisz zmiany',2000);
 }
 

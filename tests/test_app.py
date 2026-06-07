@@ -5,6 +5,7 @@ Baza jest tymczasowa (patrz conftest.py) i pusta — bez profili.
 from fastapi.testclient import TestClient
 
 from api.auth import set_password
+from api.database import get_conn
 from api.index import BASE_DIR, app
 
 client = TestClient(app)
@@ -69,6 +70,36 @@ def _admin_client() -> TestClient:
     set_password("tajne123")
     c.post("/admin/login", data={"password": "tajne123"})
     return c
+
+
+def test_save_margins_single_update_persists():
+    # Frontend wysyła marże pojedynczo (omija WAF) — backend musi przyjąć
+    # żądanie z jednym wpisem i bez metadanych profilu na górze.
+    c = _admin_client()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO profiles (code,name,category,width_mm,price_mb,margin_hurt) "
+            "VALUES ('SM','SM','drewno',30,10,40)"
+        )
+        pid = conn.execute("SELECT id FROM profiles WHERE code='SM'").fetchone()["id"]
+
+    res = c.post("/api/save-margins", json={
+        "updates": [{"mode": "wholesale", "profile_id": pid, "format": "30x40", "margin": 55, "labor": 3}]
+    })
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT margin, labor FROM format_margins WHERE profile_id=? AND format='30x40'", (pid,)
+        ).fetchone()
+    assert row["margin"] == 55
+    assert row["labor"] == 3
+
+
+def test_save_margins_forbidden_without_admin():
+    res = TestClient(app).post("/api/save-margins", json={"updates": []})
+    assert res.status_code == 403
 
 
 def test_upload_image_rejects_over_1mb():
