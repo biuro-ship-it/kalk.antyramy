@@ -18,6 +18,7 @@ FORMATS_CONFIG: dict = {
     "30x45":  (30, 45,   None,     "large",  6, 1),
     "40x50":  (40, 50,   None,     "large",  12, 2),
     "40x60":  (40, 60,   None,     "large",  12, 2),
+    "50x60":  (50, 60,   None,     "large",  14, 2),
     "50x70":  (50, 70,   None,     "large",  14, 2),
     "60x80":  (60, 80,   None,     "large",  14, 2),
     "70x100": (70, 100,  None,     "large",  14, 3),
