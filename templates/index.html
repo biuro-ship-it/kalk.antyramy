@@ -36,6 +36,18 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 .theme-btn[data-t="system"].active{color:var(--accent)!important;}
 .refresh-btn{-webkit-appearance:none!important;appearance:none!important;background-color:transparent!important;border:.5px solid var(--border)!important;border-radius:7px;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:700;color:#94a3b8!important;text-transform:uppercase;}
 .refresh-btn:hover{color:var(--accent)!important;}
+.install-btn{-webkit-appearance:none!important;appearance:none!important;background-color:var(--accent)!important;border:none!important;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:10px;font-weight:800;color:#fff!important;text-transform:uppercase;letter-spacing:.05em;display:none;align-items:center;gap:5px;white-space:nowrap;}
+.install-modal{display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;}
+.install-modal.open{display:flex;}
+.install-box{background:var(--bg2);border:.5px solid var(--border);border-radius:18px;padding:24px;max-width:380px;width:100%;color:var(--text);}
+.install-box h3{font-size:15px;font-weight:800;margin-bottom:14px;}
+.install-os{margin-bottom:14px;padding-bottom:14px;border-bottom:.5px solid var(--border);}
+.install-os:last-of-type{border:none;padding-bottom:0;margin-bottom:0;}
+.install-os-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:6px;}
+.install-step{font-size:12px;color:var(--text2);line-height:1.7;}
+.install-step b{color:var(--text);}
+.install-close{margin-top:18px;width:100%;padding:11px;border:none;border-radius:9px;background:#0f172a;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;cursor:pointer;}
+[data-theme="dark"] .install-close{background:var(--accent);}
 
 .main{max-width:900px;margin:0 auto;padding:24px 16px 48px;}
 .form-card{background:var(--bg2);border:.5px solid var(--border);border-radius:22px;padding:22px;margin-bottom:22px;}
@@ -135,6 +147,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
     <form action="/refresh" method="post" style="display:inline">
       <button type="submit" class="refresh-btn">&#8635; Odśwież</button>
     </form>
+    <button type="button" id="installBtn" class="install-btn no-print" title="Zainstaluj jako aplikację">&#11015; Zainstaluj</button>
     <div class="theme-switcher" role="group" aria-label="Motyw">
       <button class="theme-btn" data-t="light" title="Jasny">&#9728;</button>
       <button class="theme-btn" data-t="system" title="Systemowy">&#9633;</button>
@@ -289,6 +302,26 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 
   </form>
 </main>
+
+<div id="installHelp" class="install-modal no-print" onclick="if(event.target===this)closeInstallHelp()" aria-hidden="true">
+  <div class="install-box">
+    <h3>📲 Zainstaluj aplikację</h3>
+    <div class="install-os">
+      <div class="install-os-title">iPhone / iPad — Safari</div>
+      <div class="install-step">1. Naciśnij <b>Udostępnij</b> (kwadrat ze strzałką ↑) na dolnym pasku.</div>
+      <div class="install-step">2. Wybierz <b>„Do ekranu początkowego”</b>.</div>
+    </div>
+    <div class="install-os">
+      <div class="install-os-title">Android — Chrome</div>
+      <div class="install-step">Menu <b>⋮</b> → <b>„Zainstaluj aplikację”</b> (lub „Dodaj do ekranu głównego”).</div>
+    </div>
+    <div class="install-os">
+      <div class="install-os-title">Komputer — Chrome / Edge</div>
+      <div class="install-step">Kliknij ikonę instalacji <b>⊕</b> po prawej stronie paska adresu, albo Menu → <b>„Zainstaluj…”</b>.</div>
+    </div>
+    <button type="button" class="install-close" onclick="closeInstallHelp()">Zamknij</button>
+  </div>
+</div>
 
 <div id="lightbox" class="lightbox no-print" onclick="closeLightbox()" aria-hidden="true">
   <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Zamknij">&times;</button>
@@ -466,6 +499,45 @@ if('serviceWorker' in navigator){
       .catch(err => console.log('SW error:', err));
   });
 }
+
+// ── Instalacja PWA ──────────────────────────────────────────────────────────
+let deferredPrompt = null;
+const installBtn = document.getElementById('installBtn');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+
+function openInstallHelp(){
+  const m=document.getElementById('installHelp');
+  m.classList.add('open'); m.setAttribute('aria-hidden','false');
+}
+function closeInstallHelp(){
+  const m=document.getElementById('installHelp');
+  m.classList.remove('open'); m.setAttribute('aria-hidden','true');
+}
+
+// Chrome/Edge/Android: przechwytujemy natywny prompt i pokazujemy własny przycisk.
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if(!isStandalone) installBtn.style.display='inline-flex';
+});
+
+// iOS Safari nie wspiera beforeinstallprompt — pokazujemy przycisk z instrukcją.
+if(isIOS && !isStandalone) installBtn.style.display='inline-flex';
+
+installBtn?.addEventListener('click', async () => {
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display='none';
+  } else {
+    openInstallHelp();  // iOS oraz przeglądarki bez natywnego prompta
+  }
+});
+
+window.addEventListener('appinstalled', () => { installBtn.style.display='none'; });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeInstallHelp(); });
 </script>
 </body>
 </html>
