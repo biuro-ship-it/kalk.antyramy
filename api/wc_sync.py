@@ -13,12 +13,12 @@ WC_FORMAT_MAP: dict[str, str] = {
     "13x18":    "13x18",
     "15x21":    "15x21",
     "18x24":    "18x24",
-    "21x29,7":  "21x30",   # A4 — kalk klucz "21x30", wymiary 21×29,7 cm
+    "21x29,7":  "21x29.7",
     "24x30":    "24x30",
     "25x38":    "25x38",
+    "29,7x42":  "29.7x42",
     "30x40":    "30x40",
     "30x45":    "30x45",
-    # "29,7x42" nie istnieje w FORMATS_CONFIG — wariant zostanie pominięty
 }
 
 # Mapowanie wartości atrybutu materiału z WooCommerce → front_type w kalk
