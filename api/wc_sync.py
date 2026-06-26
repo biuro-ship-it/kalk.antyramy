@@ -1,6 +1,8 @@
 """
 Synchronizacja cen z WooCommerce (b2b.antyramy.eu).
-Wysyła ceny hurt brutto (lub netto) dla wszystkich pasujących wariantów produktu.
+Obsługuje dwa typy produktów:
+- variable: aktualizuje warianty przez /variations/batch
+- simple:   aktualizuje cenę bezpośrednio przez PATCH /products/{id}
 """
 import httpx
 from .calc import calculate_price, FORMATS_CONFIG
@@ -48,6 +50,26 @@ def _get_margin_exceptions(profile_id: int) -> dict:
     return {f"wholesale__{r['format']}": {"margin": r["margin"], "labor": r["labor"]} for r in rows}
 
 
+def _read_attrs(attrs: list, attr_fmt: str, attr_mat: str) -> tuple[str | None, str | None]:
+    """Wyciąga wartości formatu i materiału z listy atrybutów WooCommerce."""
+    fmt_val = mat_val = None
+    for attr in attrs:
+        name = attr.get("name", "").lower()
+        if name == attr_fmt:
+            options = attr.get("options") or attr.get("option")
+            if isinstance(options, list):
+                fmt_val = options[0].strip() if options else None
+            elif isinstance(options, str):
+                fmt_val = options.strip()
+        elif name == attr_mat:
+            options = attr.get("options") or attr.get("option")
+            if isinstance(options, list):
+                mat_val = options[0].strip() if options else None
+            elif isinstance(options, str):
+                mat_val = options.strip()
+    return fmt_val, mat_val
+
+
 async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
     """
     Wysyła ceny do wszystkich powiązanych produktów WooCommerce.
@@ -73,71 +95,111 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
 
     async with httpx.AsyncClient(timeout=30, auth=(wc_key, wc_secret)) as client:
         for wc_id in wc_ids:
+            # ── pobierz produkt ───────────────────────────────────────────
             try:
-                resp = await client.get(
-                    f"{wc_url}/wp-json/wc/v3/products/{wc_id}/variations",
-                    params={"per_page": 100},
-                )
+                prod_resp = await client.get(f"{wc_url}/wp-json/wc/v3/products/{wc_id}")
             except Exception as e:
                 results.append({"wc_id": wc_id, "ok": False, "error": str(e)})
                 continue
 
-            if resp.status_code != 200:
-                results.append({"wc_id": wc_id, "ok": False, "error": f"HTTP {resp.status_code}"})
+            if prod_resp.status_code != 200:
+                results.append({"wc_id": wc_id, "ok": False, "error": f"HTTP {prod_resp.status_code}"})
                 continue
 
-            updates = []
-            skipped = []
-            for var in resp.json():
-                fmt_val = mat_val = None
-                for attr in var.get("attributes", []):
-                    name = attr.get("name", "").lower()
-                    if name == attr_fmt:
-                        fmt_val = attr.get("option", "").strip()
-                    elif name == attr_mat:
-                        mat_val = attr.get("option", "").strip()
+            product    = prod_resp.json()
+            prod_type  = product.get("type", "simple")
+
+            # ── VARIABLE: aktualizuj warianty ─────────────────────────────
+            if prod_type == "variable":
+                try:
+                    var_resp = await client.get(
+                        f"{wc_url}/wp-json/wc/v3/products/{wc_id}/variations",
+                        params={"per_page": 100},
+                    )
+                except Exception as e:
+                    results.append({"wc_id": wc_id, "ok": False, "error": str(e)})
+                    continue
+
+                if var_resp.status_code != 200:
+                    results.append({"wc_id": wc_id, "ok": False, "error": f"Variations HTTP {var_resp.status_code}"})
+                    continue
+
+                updates = []
+                skipped = []
+                for var in var_resp.json():
+                    fmt_val, mat_val = _read_attrs(var.get("attributes", []), attr_fmt, attr_mat)
+
+                    kalk_fmt = WC_FORMAT_MAP.get(fmt_val)
+                    if not kalk_fmt:
+                        skipped.append(fmt_val)
+                        continue
+
+                    front_type = WC_MATERIAL_MAP.get(mat_val, "szklo") if mat_val else "szklo"
+                    exc        = margin_exc.get(f"wholesale__{kalk_fmt}", {})
+                    price_data = calculate_price(
+                        format_name=kalk_fmt, profile=profile, settings=settings,
+                        category=category, front_type=front_type, with_pp=False,
+                        labor_override=exc.get("labor"), margin_override=exc.get("margin"),
+                        mode="wholesale",
+                    )
+                    if price_data:
+                        updates.append({
+                            "id": var["id"],
+                            "regular_price": str(round(price_data[price_key], 2)),
+                        })
+
+                if not updates:
+                    results.append({"wc_id": wc_id, "ok": False,
+                                     "error": f"Brak pasujących wariantów (pominięte: {skipped})"})
+                    continue
+
+                try:
+                    batch = await client.post(
+                        f"{wc_url}/wp-json/wc/v3/products/{wc_id}/variations/batch",
+                        json={"update": updates},
+                    )
+                    if batch.status_code == 200:
+                        results.append({"wc_id": wc_id, "ok": True, "updated": len(updates), "skipped": skipped, "type": "variable"})
+                    else:
+                        results.append({"wc_id": wc_id, "ok": False, "error": f"Batch HTTP {batch.status_code}"})
+                except Exception as e:
+                    results.append({"wc_id": wc_id, "ok": False, "error": str(e)})
+
+            # ── SIMPLE: pobierz atrybuty z produktu, zaktualizuj cenę ─────
+            else:
+                fmt_val, mat_val = _read_attrs(product.get("attributes", []), attr_fmt, attr_mat)
 
                 kalk_fmt = WC_FORMAT_MAP.get(fmt_val)
                 if not kalk_fmt:
-                    skipped.append(fmt_val)
+                    results.append({"wc_id": wc_id, "ok": False,
+                                     "error": f"Nieznany format: '{fmt_val}'"})
                     continue
 
                 front_type = WC_MATERIAL_MAP.get(mat_val, "szklo") if mat_val else "szklo"
                 exc        = margin_exc.get(f"wholesale__{kalk_fmt}", {})
-
                 price_data = calculate_price(
-                    format_name=kalk_fmt,
-                    profile=profile,
-                    settings=settings,
-                    category=category,
-                    front_type=front_type,
-                    with_pp=False,
-                    labor_override=exc.get("labor"),
-                    margin_override=exc.get("margin"),
+                    format_name=kalk_fmt, profile=profile, settings=settings,
+                    category=category, front_type=front_type, with_pp=False,
+                    labor_override=exc.get("labor"), margin_override=exc.get("margin"),
                     mode="wholesale",
                 )
-                if price_data:
-                    updates.append({
-                        "id": var["id"],
-                        "regular_price": str(round(price_data[price_key], 2)),
-                    })
+                if not price_data:
+                    results.append({"wc_id": wc_id, "ok": False, "error": "Błąd kalkulacji"})
+                    continue
 
-            if not updates:
-                results.append({"wc_id": wc_id, "ok": False,
-                                 "error": f"Brak pasujących wariantów (pominięte: {skipped})"})
-                continue
-
-            try:
-                batch = await client.post(
-                    f"{wc_url}/wp-json/wc/v3/products/{wc_id}/variations/batch",
-                    json={"update": updates},
-                )
-                if batch.status_code == 200:
-                    results.append({"wc_id": wc_id, "ok": True, "updated": len(updates), "skipped": skipped})
-                else:
-                    results.append({"wc_id": wc_id, "ok": False, "error": f"Batch HTTP {batch.status_code}"})
-            except Exception as e:
-                results.append({"wc_id": wc_id, "ok": False, "error": str(e)})
+                new_price = str(round(price_data[price_key], 2))
+                try:
+                    patch = await client.put(
+                        f"{wc_url}/wp-json/wc/v3/products/{wc_id}",
+                        json={"regular_price": new_price},
+                    )
+                    if patch.status_code == 200:
+                        results.append({"wc_id": wc_id, "ok": True, "updated": 1,
+                                         "format": kalk_fmt, "price": new_price, "type": "simple"})
+                    else:
+                        results.append({"wc_id": wc_id, "ok": False, "error": f"PATCH HTTP {patch.status_code}"})
+                except Exception as e:
+                    results.append({"wc_id": wc_id, "ok": False, "error": str(e)})
 
     all_ok = bool(results) and all(r["ok"] for r in results)
     return {"ok": all_ok, "results": results}
