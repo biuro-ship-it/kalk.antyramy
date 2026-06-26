@@ -87,8 +87,21 @@ def init_db() -> None:
         INSERT OR IGNORE INTO profiles (code, name, category, active)
             VALUES ('ANTYRAMA_PLEXA', 'Antyrama (pleksa)', 'antyrama', 0);
         """)
-        # Migracja: dodaj shop_url jeśli kolumna nie istnieje (SQLite nie ma IF NOT EXISTS na ALTER TABLE)
-        try:
-            conn.execute("ALTER TABLE profiles ADD COLUMN shop_url TEXT DEFAULT ''")
-        except Exception:
-            pass
+        # Migracje: dodaj kolumny jeśli nie istnieją
+        for migration in [
+            "ALTER TABLE profiles ADD COLUMN shop_url TEXT DEFAULT ''",
+        ]:
+            try:
+                conn.execute(migration)
+            except Exception:
+                pass
+
+        # Tabela powiązań profil ↔ produkty WooCommerce (wiele ID per profil)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS wc_links (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id     INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                wc_product_id  INTEGER NOT NULL,
+                UNIQUE(profile_id, wc_product_id)
+            )
+        """)

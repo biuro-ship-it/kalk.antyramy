@@ -16,6 +16,7 @@ from .database import init_db, get_conn
 from .calc import _num, calculate_all
 from .auth import verify_password, verify_cookie, make_session_token, set_password
 from .archive import create_archive, list_archives
+from .wc_sync import sync_profile
 
 BASE_DIR = Path(__file__).parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -179,11 +180,11 @@ async def add_profile(request: Request):
         return JSONResponse({"ok": False}, status_code=403)
     data = await request.json()
     with get_conn() as conn:
-        conn.execute("""
+        cur = conn.execute("""
             INSERT INTO profiles (code, name, category, width_mm, price_mb, margin_hurt, img_url, description, shop_url, sort_order)
             VALUES (:code, :name, :category, :width_mm, :price_mb, :margin_hurt, :img_url, :description, :shop_url, :sort_order)
         """, data)
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, "id": cur.lastrowid})
 
 
 @app.put("/api/profiles/{profile_id}")
@@ -238,6 +239,49 @@ async def change_password(request: Request, new_password: str = Form(...)):
         return JSONResponse({"ok": False}, status_code=403)
     set_password(new_password)
     return RedirectResponse("/admin", status_code=303)
+
+
+# ── API admin — WooCommerce ────────────────────────────────────────────────────
+
+@app.get("/api/profiles/{profile_id}/wc-links")
+async def get_wc_links(profile_id: int, request: Request):
+    if not _is_admin(request):
+        return JSONResponse({"ok": False}, status_code=403)
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT wc_product_id FROM wc_links WHERE profile_id=? ORDER BY wc_product_id",
+            (profile_id,)
+        ).fetchall()
+    return JSONResponse({"ok": True, "ids": [r["wc_product_id"] for r in rows]})
+
+
+@app.put("/api/profiles/{profile_id}/wc-links")
+async def set_wc_links(profile_id: int, request: Request):
+    """Zastępuje całą listę powiązanych produktów WC dla profilu."""
+    if not _is_admin(request):
+        return JSONResponse({"ok": False}, status_code=403)
+    data = await request.json()
+    ids = [int(i) for i in data.get("ids", []) if str(i).strip().isdigit()]
+    with get_conn() as conn:
+        conn.execute("DELETE FROM wc_links WHERE profile_id=?", (profile_id,))
+        for wc_id in ids:
+            conn.execute(
+                "INSERT OR IGNORE INTO wc_links (profile_id, wc_product_id) VALUES (?,?)",
+                (profile_id, wc_id)
+            )
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/profiles/{profile_id}/sync-wc")
+async def sync_wc(profile_id: int, request: Request):
+    if not _is_admin(request):
+        return JSONResponse({"ok": False}, status_code=403)
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM profiles WHERE id=?", (profile_id,)).fetchone()
+    if not row:
+        return JSONResponse({"ok": False, "error": "Profil nie istnieje"}, status_code=404)
+    result = await sync_profile(profile_id, dict(row), _settings())
+    return JSONResponse(result)
 
 
 # ── upload zdjęcia ────────────────────────────────────────────────────────────

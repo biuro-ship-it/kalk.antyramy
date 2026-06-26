@@ -146,6 +146,40 @@ textarea{resize:vertical;min-height:80px;}
       {% endfor %}
     </div>
 
+    <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#c084fc;margin-bottom:10px">WooCommerce API (b2b.antyramy.eu)</p>
+    <div class="settings-grid" style="margin-bottom:12px">
+      <div class="s-item" style="grid-column:span 2">
+        <div class="field-lbl">URL sklepu</div>
+        <input type="url" data-key="wc_url" value="{{ settings.get('wc_url','') }}" class="s-input" placeholder="https://b2b.antyramy.eu">
+      </div>
+      <div class="s-item">
+        <div class="field-lbl">Consumer Key (ck_...)</div>
+        <input type="text" data-key="wc_key" value="{{ settings.get('wc_key','') }}" class="s-input" placeholder="ck_...">
+      </div>
+      <div class="s-item">
+        <div class="field-lbl">Consumer Secret (cs_...)</div>
+        <input type="password" data-key="wc_secret" value="{{ settings.get('wc_secret','') }}" class="s-input" placeholder="cs_...">
+      </div>
+      <div class="s-item">
+        <div class="field-lbl">Nazwa atrybutu formatu w WC</div>
+        <input type="text" data-key="wc_attr_format" value="{{ settings.get('wc_attr_format','format') }}" class="s-input">
+      </div>
+      <div class="s-item">
+        <div class="field-lbl">Nazwa atrybutu materiału w WC</div>
+        <input type="text" data-key="wc_attr_material" value="{{ settings.get('wc_attr_material','materiał') }}" class="s-input">
+      </div>
+      <div class="s-item">
+        <div class="field-lbl">Cena wysyłana do sklepu</div>
+        <select data-key="wc_price_type" class="s-input">
+          <option value="gross" {{ 'selected' if settings.get('wc_price_type','gross')=='gross' }}>Brutto</option>
+          <option value="net"   {{ 'selected' if settings.get('wc_price_type','gross')=='net' }}>Netto</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:10px;color:#64748b;margin-bottom:16px">
+      Klucze API generuj w WooCommerce → Ustawienia → Zaawansowane → REST API (uprawnienia: Odczyt/Zapis).
+    </p>
+
     <div style="display:flex;align-items:center;gap:12px">
       <button class="btn btn-green" onclick="saveSettings()">&#10003; Zapisz ustawienia</button>
       <span id="sMsg" style="font-size:11px;color:#64748b"></span>
@@ -172,9 +206,12 @@ textarea{resize:vertical;min-height:80px;}
             <td>{{ p.width_mm }} mm</td>
             <td>{{ p.price_mb }} zł</td>
             <td>{{ p.margin_hurt }}%</td>
-            <td style="display:flex;gap:6px">
+            <td style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn btn-slate" onclick='editProfile({{ p|tojson }})'>Edytuj</button>
               <button class="btn btn-red" onclick="delProfile({{ p.id }},'{{ p.code }}')">Usuń</button>
+              <button class="btn" id="syncBtn-{{ p.id }}"
+                style="background:#7c3aed!important;color:#fff!important"
+                onclick="syncWC({{ p.id }},this)">&#8644; B2B</button>
             </td>
           </tr>
           {% endfor %}
@@ -234,6 +271,11 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div><div class="field-lbl">Opis</div><textarea id="fDesc" placeholder="Opis widoczny przy wycenie..."></textarea></div>
       <div><div class="field-lbl">Link do sklepu (URL produktu)</div><input type="url" id="fShopUrl" placeholder="https://antyramy.eu/produkt/..."></div>
+      <div>
+        <div class="field-lbl">ID produktów WooCommerce (oddziel przecinkami)</div>
+        <input type="text" id="fWcIds" placeholder="np. 123, 456, 789">
+        <span style="font-size:10px;color:#64748b">Wiele produktów = ten sam cennik (np. 060 czarna, biała, złota)</span>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-slate" onclick="closeModal()">Anuluj</button>
@@ -254,6 +296,7 @@ function closeModal(){
   document.getElementById('fImgFile').value='';
   document.getElementById('imgPreview').style.display='none';
   document.getElementById('fShopUrl').value='';
+  document.getElementById('fWcIds').value='';
 }
 
 async function uploadImage(){
@@ -301,6 +344,10 @@ function editProfile(p){
   document.getElementById('fImg').value=p.img_url||'';
   document.getElementById('fDesc').value=p.description||'';
   document.getElementById('fShopUrl').value=p.shop_url||'';
+  // Załaduj WC IDs asynchronicznie
+  fetch(`/api/profiles/${p.id}/wc-links`)
+    .then(r=>r.json())
+    .then(d=>{ if(d.ok) document.getElementById('fWcIds').value=(d.ids||[]).join(', '); });
   if(p.img_url){
     document.getElementById('imgPreviewEl').src=p.img_url;
     document.getElementById('imgPreview').style.display='block';
@@ -325,8 +372,14 @@ async function saveProfile(){
   const res=await fetch(id?`/api/profiles/${id}`:'/api/profiles',
     {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const d=await res.json();
-  if(d.ok){closeModal();location.reload();}
-  else alert('Błąd: '+(d.error||''));
+  if(!d.ok){alert('Błąd: '+(d.error||''));return;}
+  // Zapisz WC IDs
+  const profileId = id || d.id;
+  const rawIds = document.getElementById('fWcIds').value;
+  const wcIds = rawIds.split(',').map(s=>s.trim()).filter(s=>/^\d+$/.test(s)).map(Number);
+  await fetch(`/api/profiles/${profileId}/wc-links`,
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:wcIds})});
+  closeModal();location.reload();
 }
 
 async function delProfile(id,code){
@@ -335,6 +388,29 @@ async function delProfile(id,code){
   const d=await res.json();
   if(d.ok)document.getElementById(`row-${id}`)?.remove();
   else alert('Błąd usuwania');
+}
+
+async function syncWC(profileId, btn){
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Sync...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/profiles/${profileId}/sync-wc`, {method:'POST'});
+    const d = await res.json();
+    if(d.ok){
+      const total = d.results.reduce((s,r)=>s+(r.updated||0),0);
+      btn.textContent = `✅ ${total} war.`;
+    } else {
+      const err = d.error || (d.results||[]).map(r=>r.error).filter(Boolean).join('; ');
+      btn.textContent = '❌ Błąd';
+      alert('Błąd sync WC:\n' + err);
+    }
+  } catch(e) {
+    btn.textContent = '❌ Sieć';
+    alert('Błąd sieci: ' + e.message);
+  }
+  btn.disabled = false;
+  setTimeout(()=>btn.textContent=orig, 4000);
 }
 
 async function saveSettings(){
