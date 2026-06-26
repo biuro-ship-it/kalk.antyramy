@@ -87,3 +87,8 @@ def init_db() -> None:
         INSERT OR IGNORE INTO profiles (code, name, category, active)
             VALUES ('ANTYRAMA_PLEXA', 'Antyrama (pleksa)', 'antyrama', 0);
         """)
+        # Migracja: dodaj shop_url jeśli kolumna nie istnieje (SQLite nie ma IF NOT EXISTS na ALTER TABLE)
+        try:
+            conn.execute("ALTER TABLE profiles ADD COLUMN shop_url TEXT DEFAULT ''")
+        except Exception:
+            pass

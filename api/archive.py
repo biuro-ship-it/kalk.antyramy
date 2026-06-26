@@ -1,19 +1,24 @@
 """
-Archiwizacja cennika — tworzy ZIP z:
-- dump SQL bazy
-- CSV profili, ustawień, wyjątków marż
+Backup cennika — tworzy ZIP z:
+- dump SQL bazy (wystarczy do pełnego przywrócenia)
+- CSV profili, ustawień, wyjątków marż (czytelny podgląd)
+- wszystkie wgrane zdjęcia z static/images/
 - README z datą i notatką
 """
 import csv
 import io
 import zipfile
 from datetime import datetime
+from pathlib import Path
 from .database import get_conn
+
+IMAGES_DIR = Path(__file__).parent.parent / "static" / "images"
 
 
 def create_archive(note: str = "") -> bytes:
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M")
+    folder = f"backup_{timestamp}"
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -21,14 +26,30 @@ def create_archive(note: str = "") -> bytes:
         with get_conn() as conn:
             sql_dump = "\n".join(conn.iterdump())
 
-        zf.writestr(f"cennik_{timestamp}/dump.sql",          sql_dump)
-        zf.writestr(f"cennik_{timestamp}/profile.csv",       _profiles_csv())
-        zf.writestr(f"cennik_{timestamp}/ustawienia.csv",    _settings_csv())
-        zf.writestr(f"cennik_{timestamp}/wyjatki_marzy.csv", _margins_csv())
-        zf.writestr(f"cennik_{timestamp}/README.txt",
-            f"Archiwum cennika Antyramy.eu\n"
+        zf.writestr(f"{folder}/dump.sql",          sql_dump)
+        zf.writestr(f"{folder}/profile.csv",       _profiles_csv())
+        zf.writestr(f"{folder}/ustawienia.csv",    _settings_csv())
+        zf.writestr(f"{folder}/wyjatki_marzy.csv", _margins_csv())
+
+        # Zdjęcia wgrane przez panel admina
+        images_added = 0
+        if IMAGES_DIR.exists():
+            for img in IMAGES_DIR.iterdir():
+                if img.is_file():
+                    zf.write(img, f"{folder}/images/{img.name}")
+                    images_added += 1
+
+        zf.writestr(f"{folder}/README.txt",
+            f"Backup Antyramy.eu — kalkulator ramek\n"
             f"Data: {now.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Notatka: {note or '—'}\n"
+            f"Notatka: {note or '—'}\n\n"
+            f"Zawartość:\n"
+            f"  dump.sql          — pełny dump bazy SQLite (do przywrócenia)\n"
+            f"  profile.csv       — lista profili/listew\n"
+            f"  ustawienia.csv    — ceny i marże globalne\n"
+            f"  wyjatki_marzy.csv — marże per format\n"
+            f"  images/           — wgrane zdjęcia ({images_added} plików)\n\n"
+            f"Przywracanie: podaj ten plik Claude'owi — wgra dane na serwer.\n"
         )
 
         _save_history(note=note, timestamp=timestamp, sql_dump=sql_dump)

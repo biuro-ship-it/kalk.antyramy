@@ -165,8 +165,8 @@ async def save_margins(request: Request):
             """, (u["mode"], u["profile_id"], u["format"], u["margin"], u["labor"]))
         if data.get("profile_id"):
             conn.execute(
-                "UPDATE profiles SET img_url=?, description=? WHERE id=?",
-                (data.get("img_url", ""), data.get("description", ""), data["profile_id"])
+                "UPDATE profiles SET img_url=?, description=?, shop_url=? WHERE id=?",
+                (data.get("img_url", ""), data.get("description", ""), data.get("shop_url", ""), data["profile_id"])
             )
     return JSONResponse({"ok": True})
 
@@ -180,8 +180,8 @@ async def add_profile(request: Request):
     data = await request.json()
     with get_conn() as conn:
         conn.execute("""
-            INSERT INTO profiles (code, name, category, width_mm, price_mb, margin_hurt, img_url, description, sort_order)
-            VALUES (:code, :name, :category, :width_mm, :price_mb, :margin_hurt, :img_url, :description, :sort_order)
+            INSERT INTO profiles (code, name, category, width_mm, price_mb, margin_hurt, img_url, description, shop_url, sort_order)
+            VALUES (:code, :name, :category, :width_mm, :price_mb, :margin_hurt, :img_url, :description, :shop_url, :sort_order)
         """, data)
     return JSONResponse({"ok": True})
 
@@ -197,7 +197,7 @@ async def update_profile(profile_id: int, request: Request):
             UPDATE profiles SET
                 code=:code, name=:name, category=:category,
                 width_mm=:width_mm, price_mb=:price_mb, margin_hurt=:margin_hurt,
-                img_url=:img_url, description=:description, active=:active
+                img_url=:img_url, description=:description, shop_url=:shop_url, active=:active
             WHERE id=:id
         """, data)
     return JSONResponse({"ok": True})

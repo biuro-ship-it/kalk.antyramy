@@ -100,6 +100,8 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 .info-img{width:100%;border-radius:9px;object-fit:cover;max-height:150px;margin-bottom:12px;cursor:zoom-in;}
 .info-img-placeholder{width:100%;border-radius:9px;background:var(--bg3);height:110px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;margin-bottom:12px;}
 .info-desc{font-size:11px;color:var(--text2);line-height:1.7;background:var(--accent-bg);border:.5px solid var(--accent-border);border-radius:8px;padding:11px 13px;}
+.shop-link{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:10px 16px;background:var(--accent);color:#fff!important;border-radius:9px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;text-decoration:none;transition:background .15s;}
+.shop-link:hover{background:#1d4ed8;}
 .lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
 .lightbox.open{display:flex;}
 .lightbox img{max-width:95%;max-height:95%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
@@ -199,6 +201,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
             {% for p in profiles %}
             <option value="{{ p.id }}" data-cat="{{ p.category }}"
               data-img="{{ p.img_url }}" data-desc="{{ p.description }}" data-name="{{ p.name }}"
+              data-shopurl="{{ p.shop_url or '' }}"
               {{ 'selected' if profile and profile.id == p.id }}>
               {{ p.code }} — {{ p.name }}
             </option>
@@ -287,13 +290,25 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
         {% if profile.description %}
         <div class="info-desc">{{ profile.description }}</div>
         {% endif %}
+        {% if profile.shop_url %}
+        <a href="{{ profile.shop_url }}" target="_blank" rel="noopener noreferrer" class="shop-link">🛒 Kup w sklepie ↗</a>
+        {% endif %}
         {% if is_admin %}
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
           <p class="section-label">Edycja (admin)</p>
-          <input type="text" id="adminImg" value="{{ profile.img_url }}"
-            placeholder="URL zdjęcia" class="admin-input" style="width:100%">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="adminImg" value="{{ profile.img_url }}"
+              placeholder="URL zdjęcia" class="admin-input" style="width:100%;flex:1">
+            <input type="file" id="adminImgFile" accept="image/*" style="display:none" onchange="adminUploadImage()">
+            <button type="button" onclick="document.getElementById('adminImgFile').click()"
+              style="-webkit-appearance:none;appearance:none;background:#334155;color:#f1f5f9;border:none;border-radius:7px;padding:6px 11px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;">📷 Wgraj</button>
+          </div>
+          <span id="adminUploadMsg" style="font-size:10px;color:var(--text3)"></span>
           <textarea id="adminDesc" rows="4" placeholder="Opis produktu"
             style="width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:8px;font-size:11px;color:var(--text);resize:vertical">{{ profile.description }}</textarea>
+          <input type="url" id="adminShopUrl" value="{{ profile.shop_url or '' }}"
+            placeholder="https://antyramy.eu/produkt/..."
+            style="width:100%;background:var(--bg3);border:.5px solid var(--border);border-radius:7px;padding:8px 10px;font-size:11px;font-weight:700;color:var(--text);outline:none;">
         </div>
         {% endif %}
       </div>
@@ -470,13 +485,34 @@ async function saveMargins(){
     const status=await sendMargins({updates:[r]});
     if(status!==200){ showSaveError(btn,status); return; }
   }
-  // Zdjęcie i opis profilu zapisujemy osobno, jednym żądaniem.
+  // Zdjęcie, opis i link sklepu zapisujemy osobno, jednym żądaniem.
   const status=await sendMargins({profile_id:PROFILE_ID,
     img_url:document.getElementById('adminImg')?.value||'',
-    description:document.getElementById('adminDesc')?.value||''});
+    description:document.getElementById('adminDesc')?.value||'',
+    shop_url:document.getElementById('adminShopUrl')?.value||''});
   if(status!==200){ showSaveError(btn,status); return; }
   btn.textContent='✅ Zapisano!';
   setTimeout(()=>btn.textContent='💾 Zapisz zmiany',2000);
+}
+
+async function adminUploadImage(){
+  const file=document.getElementById('adminImgFile').files[0];
+  if(!file) return;
+  const msg=document.getElementById('adminUploadMsg');
+  if(file.size>1048576){msg.textContent='❌ Plik za duży (max 1 MB)';return;}
+  msg.textContent='⏳ Wgrywanie...';
+  const fd=new FormData();fd.append('file',file);
+  try{
+    const res=await fetch('/api/upload-image',{method:'POST',body:fd});
+    if(!res.ok){msg.textContent='❌ Błąd serwera (HTTP '+res.status+')';return;}
+    const d=await res.json();
+    if(d.ok){
+      document.getElementById('adminImg').value=d.url;
+      const imgEl=document.querySelector('.info-img');
+      if(imgEl){imgEl.src=d.url;}
+      msg.textContent='✅ Wgrano';
+    }else{msg.textContent='❌ '+(d.error||'Błąd');}
+  }catch(e){msg.textContent='❌ Błąd sieci';}
 }
 
 function openLightbox(src){

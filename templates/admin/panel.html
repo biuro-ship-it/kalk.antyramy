@@ -68,17 +68,22 @@ textarea{resize:vertical;min-height:80px;}
 
 <div class="main">
 
-  <!-- ARCHIWUM -->
+  <!-- BACKUP -->
   <div class="section">
-    <div class="section-title">&#128230; Archiwum cennika</div>
+    <div class="section-title">&#128190; Backup danych</div>
+    <p style="font-size:11px;color:#64748b;margin-bottom:14px;line-height:1.6">
+      ZIP zawiera: dump bazy SQL, CSV z profilami / ustawieniami / marżami oraz wszystkie wgrane zdjęcia.<br>
+      W razie utraty danych wystarczy podać ten plik — dane zostaną przywrócone na serwer.
+    </p>
     <form method="post" action="/admin/archive" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
       <div style="flex:1;min-width:220px">
-        <div class="field-lbl">Notatka</div>
-        <input type="text" name="note" placeholder="np. zmiana cen czerwiec 2026">
+        <div class="field-lbl">Notatka (opcjonalnie)</div>
+        <input type="text" name="note" placeholder="np. przed zmianą cen czerwiec 2026">
       </div>
-      <button type="submit" class="btn btn-orange">&#128230; Pobierz ZIP</button>
+      <button type="submit" class="btn btn-green">&#11015; Pobierz backup ZIP</button>
     </form>
     {% if archives %}
+    <div class="field-lbl" style="margin-bottom:8px">Historia backupów</div>
     <div class="archive-list">
       {% for a in archives %}
       <div class="archive-item">
@@ -88,7 +93,7 @@ textarea{resize:vertical;min-height:80px;}
       {% endfor %}
     </div>
     {% else %}
-    <p style="font-size:12px;color:#475569">Brak archiwów. Kliknij "Pobierz ZIP" aby utworzyć pierwsze.</p>
+    <p style="font-size:12px;color:#475569">Brak backupów. Kliknij "Pobierz backup ZIP" aby wykonać pierwszy.</p>
     {% endif %}
   </div>
 
@@ -228,6 +233,7 @@ textarea{resize:vertical;min-height:80px;}
         <span id="uploadMsg" style="font-size:10px;color:#64748b"></span>
       </div>
       <div><div class="field-lbl">Opis</div><textarea id="fDesc" placeholder="Opis widoczny przy wycenie..."></textarea></div>
+      <div><div class="field-lbl">Link do sklepu (URL produktu)</div><input type="url" id="fShopUrl" placeholder="https://antyramy.eu/produkt/..."></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-slate" onclick="closeModal()">Anuluj</button>
@@ -247,6 +253,7 @@ function closeModal(){
   document.getElementById('eId').value='';
   document.getElementById('fImgFile').value='';
   document.getElementById('imgPreview').style.display='none';
+  document.getElementById('fShopUrl').value='';
 }
 
 async function uploadImage(){
@@ -293,6 +300,7 @@ function editProfile(p){
   document.getElementById('fMargin').value=p.margin_hurt;
   document.getElementById('fImg').value=p.img_url||'';
   document.getElementById('fDesc').value=p.description||'';
+  document.getElementById('fShopUrl').value=p.shop_url||'';
   if(p.img_url){
     document.getElementById('imgPreviewEl').src=p.img_url;
     document.getElementById('imgPreview').style.display='block';
@@ -311,6 +319,7 @@ async function saveProfile(){
     margin_hurt:parseFloat(document.getElementById('fMargin').value)||40,
     img_url:document.getElementById('fImg').value.trim(),
     description:document.getElementById('fDesc').value.trim(),
+    shop_url:document.getElementById('fShopUrl').value.trim(),
     sort_order:0,active:1,
   };
   const res=await fetch(id?`/api/profiles/${id}`:'/api/profiles',
