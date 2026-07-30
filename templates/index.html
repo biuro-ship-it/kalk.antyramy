@@ -60,7 +60,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 .type-tile-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text2);}
 .type-tile.active .type-tile-label{color:var(--accent);}
 .divider{border:none;border-top:.5px solid var(--border);margin:18px 0;}
-.fill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.fill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:6px;}
 .fill-tile{background:var(--bg3);border:1.5px solid var(--border);border-radius:7px;padding:10px 6px;cursor:pointer;text-align:center;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);transition:all .15s;user-select:none;}
 .fill-tile:hover{border-color:var(--border2);}
 .fill-tile.active{border-color:var(--tile-ac);background:var(--tile-ab);color:var(--accent);}
@@ -185,11 +185,11 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
         <div>
           <p class="section-label">2. Wypełnienie</p>
           <div class="fill-grid">
-            {% for val, lbl in [('szklo','Szkło'),('pleksa','Pleksa'),('sama_rama','Sama rama')] %}
+            {% for val, spec in front_types.items() %}
             <label>
               <input type="radio" name="front_type" value="{{ val }}" class="sr-only fill-radio"
                 {{ 'checked' if (front_type==val or (not front_type and val=='szklo')) }}>
-              <div class="fill-tile {{ 'active' if (front_type==val or (not front_type and val=='szklo')) }}">{{ lbl }}</div>
+              <div class="fill-tile {{ 'active' if (front_type==val or (not front_type and val=='szklo')) }}">{{ spec.label }}</div>
             </label>
             {% endfor %}
           </div>

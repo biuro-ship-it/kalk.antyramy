@@ -27,6 +27,33 @@ FORMATS_CONFIG: dict = {
 
 LABOR_KEY = {"small": "labor_small", "medium": "labor_medium", "large": "labor_large"}
 
+# Jedno źródło prawdy o rodzajach wypełnienia: klucze cen zakupu i marż w settings,
+# etykieta dla formularza oraz kod wirtualnego profilu antyramy (niezależne marże per format).
+FRONT_TYPES: dict = {
+    "szklo":     {"label": "Szkło",             "price_key": "glass_price_m2",
+                  "margin_key": "margin_glass",     "margin_default": 30,
+                  "antyrama_code": "ANTYRAMA_GLASS"},
+    "szklo_ar":  {"label": "Szkło antyrefleks", "price_key": "glass_ar_price_m2",
+                  "margin_key": "margin_glass_ar",  "margin_default": 30,
+                  "antyrama_code": "ANTYRAMA_GLASS_AR"},
+    "pleksa":    {"label": "Pleksa",            "price_key": "plexsa_price_m2",
+                  "margin_key": "margin_plexsa",    "margin_default": 45,
+                  "antyrama_code": "ANTYRAMA_PLEXA"},
+    "pleksa_ar": {"label": "Plexi antyrefleks", "price_key": "plexsa_ar_price_m2",
+                  "margin_key": "margin_plexsa_ar", "margin_default": 45,
+                  "antyrama_code": "ANTYRAMA_PLEXA_AR"},
+    "sama_rama": {"label": "Sama rama",         "price_key": None,
+                  "margin_key": None,               "margin_default": 0,
+                  "antyrama_code": "ANTYRAMA_GLASS"},
+}
+
+DEFAULT_FRONT = "szklo"
+
+
+def front_spec(front_type: str) -> dict:
+    """Opis wypełnienia — nieznana wartość zachowuje się jak zwykłe szkło."""
+    return FRONT_TYPES.get(front_type, FRONT_TYPES[DEFAULT_FRONT])
+
 
 def _num(settings: dict, key: str, default: float) -> float:
     """Bezpieczna konwersja ustawienia na float — pusty/niepoprawny tekst → default."""
@@ -73,11 +100,10 @@ def calculate_price(
     is_antyrama  = category == "antyrama"
     is_alu       = category == "alu"
     is_sama_rama = front_type == "sama_rama"
-    is_pleksa    = front_type == "pleksa"
+    front        = front_spec(front_type)
 
     # ── ceny zakupu ──────────────────────────────────────────────────
-    front_key   = "plexsa_price_m2" if is_pleksa else "glass_price_m2"
-    front_cost  = _num(settings, front_key, 0)
+    front_cost  = _num(settings, front["price_key"], 0) if front["price_key"] else 0.0
     back_cost   = _num(settings, "back_price_m2", 0)
     clip_cost   = _num(settings, "clip_price", 0)
     hook_cost   = _num(settings, "hook_price", 0)
@@ -87,7 +113,8 @@ def calculate_price(
     vat         = _num(settings, "vat", 23)
 
     # ── marże per element ────────────────────────────────────────────
-    margin_front  = _num(settings, "margin_plexsa" if is_pleksa else "margin_glass", 30)
+    margin_front  = (_num(settings, front["margin_key"], front["margin_default"])
+                     if front["margin_key"] else 0.0)
     margin_back   = _num(settings, "margin_back", 20)
     margin_pp     = _num(settings, "margin_pp", 30)
     margin_frame  = float(profile.get("margin_hurt", 40) or 40)   # marża listwy z profilu

@@ -106,6 +106,7 @@ textarea{resize:vertical;min-height:80px;}
       {% set ceny = {
         'vat':'VAT (%)',
         'glass_price_m2':'Szkło (zł/m²)', 'plexsa_price_m2':'Plexa (zł/m²)',
+        'glass_ar_price_m2':'Szkło antyrefleks (zł/m²)', 'plexsa_ar_price_m2':'Plexi antyrefleks (zł/m²)',
         'back_price_m2':'Tył (zł/m²)', 'pp_price_m2':'Passe-partout (zł/m²)',
         'hook_price':'Zaczep (zł/szt)', 'clip_price':'Spinka (zł/szt)',
         'alu_kit_price':'Montaż alu (zł)'
@@ -122,6 +123,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="settings-grid" style="margin-bottom:20px">
       {% set marze = {
         'margin_glass':'Marża szkło (%)', 'margin_plexsa':'Marża plexa (%)',
+        'margin_glass_ar':'Marża szkło antyrefleks (%)', 'margin_plexsa_ar':'Marża plexi antyrefleks (%)',
         'margin_back':'Marża tył (%)', 'margin_pp':'Marża PP (%)',
         'margin_alu_kit':'Marża montaż alu (%)', 'margin_clips':'Marża spinki/zaczepy (%)'
       } %}
@@ -400,6 +402,8 @@ async function syncWC(profileId, btn){
     if(d.ok){
       const total = d.results.reduce((s,r)=>s+(r.updated||0),0);
       btn.textContent = `✅ ${total} war.`;
+      const warns = (d.results||[]).map(r=>r.warning).filter(Boolean);
+      if(warns.length) alert('Sync zakończony, ale:\n' + warns.join('\n'));
     } else {
       const err = d.error || (d.results||[]).map(r=>r.error).filter(Boolean).join('; ');
       btn.textContent = '❌ Błąd';

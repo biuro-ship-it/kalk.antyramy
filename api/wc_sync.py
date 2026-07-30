@@ -23,13 +23,38 @@ WC_FORMAT_MAP: dict[str, str] = {
     "30x45":    "30x45",
 }
 
-# Mapowanie wartości atrybutu materiału z WooCommerce → front_type w kalk
+# Mapowanie wartości atrybutu materiału z WooCommerce → front_type w kalk.
+# Klucze małymi literami — porównanie idzie przez _map_material().
 WC_MATERIAL_MAP: dict[str, str] = {
     "szkło":  "szklo",
     "plexa":  "pleksa",
     "pleksa": "pleksa",
     "szklo":  "szklo",
+    # antyrefleks — warianty pisowni spotykane w sklepie
+    "szkło antyrefleks":  "szklo_ar",
+    "szklo antyrefleks":  "szklo_ar",
+    "antyrefleks":        "szklo_ar",
+    "szkło ar":           "szklo_ar",
+    "plexa antyrefleks":  "pleksa_ar",
+    "pleksa antyrefleks": "pleksa_ar",
+    "plexi antyrefleks":  "pleksa_ar",
+    "plexa ar":           "pleksa_ar",
 }
+
+
+def _map_material(mat_val: str | None) -> tuple[str, bool]:
+    """Wartość atrybutu z WC → (front_type, czy_rozpoznano).
+
+    Brak atrybutu traktujemy jako szkło (tak było od zawsze). Atrybut ustawiony,
+    ale nieznany, też wycenia się jak szkło — zwracamy jednak False, żeby wynik
+    synchronizacji mógł o tym ostrzec zamiast po cichu zaniżyć cenę.
+    """
+    if not mat_val:
+        return "szklo", True
+    key = mat_val.strip().lower()
+    if key in WC_MATERIAL_MAP:
+        return WC_MATERIAL_MAP[key], True
+    return "szklo", False
 
 
 def _get_wc_links(profile_id: int) -> list[int]:
@@ -126,6 +151,7 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
 
                 updates = []
                 skipped = []
+                unknown_materials = []
                 for var in var_resp.json():
                     fmt_val, mat_val = _read_attrs(var.get("attributes", []), attr_fmt, attr_mat)
 
@@ -134,7 +160,9 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
                         skipped.append(fmt_val)
                         continue
 
-                    front_type = WC_MATERIAL_MAP.get(mat_val, "szklo") if mat_val else "szklo"
+                    front_type, mat_ok = _map_material(mat_val)
+                    if not mat_ok and mat_val not in unknown_materials:
+                        unknown_materials.append(mat_val)
                     exc        = margin_exc.get(f"wholesale__{kalk_fmt}", {})
                     price_data = calculate_price(
                         format_name=kalk_fmt, profile=profile, settings=settings,
@@ -159,7 +187,14 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
                         json={"update": updates},
                     )
                     if batch.status_code == 200:
-                        results.append({"wc_id": wc_id, "ok": True, "updated": len(updates), "skipped": skipped, "type": "variable"})
+                        entry = {"wc_id": wc_id, "ok": True, "updated": len(updates),
+                                 "skipped": skipped, "type": "variable"}
+                        if unknown_materials:
+                            entry["warning"] = (
+                                "Nieznany materiał (wycenione jak zwykłe szkło): "
+                                + ", ".join(f"'{m}'" for m in unknown_materials)
+                            )
+                        results.append(entry)
                     else:
                         results.append({"wc_id": wc_id, "ok": False, "error": f"Batch HTTP {batch.status_code}"})
                 except Exception as e:
@@ -175,7 +210,7 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
                                      "error": f"Nieznany format: '{fmt_val}'"})
                     continue
 
-                front_type = WC_MATERIAL_MAP.get(mat_val, "szklo") if mat_val else "szklo"
+                front_type, mat_ok = _map_material(mat_val)
                 exc        = margin_exc.get(f"wholesale__{kalk_fmt}", {})
                 price_data = calculate_price(
                     format_name=kalk_fmt, profile=profile, settings=settings,
@@ -194,8 +229,13 @@ async def sync_profile(profile_id: int, profile: dict, settings: dict) -> dict:
                         json={"regular_price": new_price},
                     )
                     if patch.status_code == 200:
-                        results.append({"wc_id": wc_id, "ok": True, "updated": 1,
-                                         "format": kalk_fmt, "price": new_price, "type": "simple"})
+                        entry = {"wc_id": wc_id, "ok": True, "updated": 1,
+                                 "format": kalk_fmt, "price": new_price, "type": "simple"}
+                        if not mat_ok:
+                            entry["warning"] = (
+                                f"Nieznany materiał '{mat_val}' — wycenione jak zwykłe szkło"
+                            )
+                        results.append(entry)
                     else:
                         results.append({"wc_id": wc_id, "ok": False, "error": f"PATCH HTTP {patch.status_code}"})
                 except Exception as e:

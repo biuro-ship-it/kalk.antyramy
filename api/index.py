@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .database import init_db, get_conn
-from .calc import _num, calculate_all
+from .calc import _num, calculate_all, front_spec, FRONT_TYPES, DEFAULT_FRONT
 from .auth import verify_password, verify_cookie, make_session_token, set_password
 from .archive import create_archive, list_archives
 from .wc_sync import sync_profile
@@ -85,6 +85,7 @@ def _is_admin(request: Request) -> bool:
 async def home(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         "profiles": _profiles(),
+        "front_types": FRONT_TYPES,
         "is_admin": _is_admin(request),
     })
 
@@ -108,12 +109,16 @@ async def calculate(
     s = _settings()
     is_admin = _is_admin(request)
 
+    # nieznane wypełnienie (stary link, ręcznie spreparowany POST) → domyślne szkło
+    if front_type not in FRONT_TYPES:
+        front_type = DEFAULT_FRONT
+
     if category == "antyrama":
         # Osobny wirtualny wiersz (active=0) dla szkła i pleksy — niezerowe id
         # potrzebne do zapisu marż per format (FK format_margins.profile_id),
         # a różne id daje niezależne marże dla każdego wypełnienia. Marżę bazową
         # bierzemy z ustawień, nie z kolumny margin_hurt profilu.
-        antyrama_code = "ANTYRAMA_PLEXA" if front_type == "pleksa" else "ANTYRAMA_GLASS"
+        antyrama_code = front_spec(front_type)["antyrama_code"]
         with get_conn() as conn:
             row = conn.execute("SELECT * FROM profiles WHERE code=?", (antyrama_code,)).fetchone()
         profile = dict(row)
@@ -140,6 +145,7 @@ async def calculate(
         "results": results,
         "profile": profile,
         "profiles": _profiles(),
+        "front_types": FRONT_TYPES,
         "category": category,
         "front_type": front_type,
         "with_pp": with_pp,

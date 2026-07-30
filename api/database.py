@@ -61,6 +61,8 @@ def init_db() -> None:
         INSERT OR IGNORE INTO settings VALUES ('vat', '23');
         INSERT OR IGNORE INTO settings VALUES ('glass_price_m2', '28.00');
         INSERT OR IGNORE INTO settings VALUES ('plexsa_price_m2', '55.00');
+        INSERT OR IGNORE INTO settings VALUES ('glass_ar_price_m2', '95.00');
+        INSERT OR IGNORE INTO settings VALUES ('plexsa_ar_price_m2', '150.00');
         INSERT OR IGNORE INTO settings VALUES ('back_price_m2', '12.00');
         INSERT OR IGNORE INTO settings VALUES ('pp_price_m2', '18.00');
         INSERT OR IGNORE INTO settings VALUES ('hook_price', '0.40');
@@ -71,6 +73,8 @@ def init_db() -> None:
         INSERT OR IGNORE INTO settings VALUES ('labor_large', '6.50');
         INSERT OR IGNORE INTO settings VALUES ('margin_glass', '30');
         INSERT OR IGNORE INTO settings VALUES ('margin_plexsa', '45');
+        INSERT OR IGNORE INTO settings VALUES ('margin_glass_ar', '30');
+        INSERT OR IGNORE INTO settings VALUES ('margin_plexsa_ar', '45');
         INSERT OR IGNORE INTO settings VALUES ('margin_back', '20');
         INSERT OR IGNORE INTO settings VALUES ('margin_pp', '30');
         INSERT OR IGNORE INTO settings VALUES ('margin_alu_kit', '20');
@@ -86,6 +90,10 @@ def init_db() -> None:
             VALUES ('ANTYRAMA_GLASS', 'Antyrama (szkło)', 'antyrama', 0);
         INSERT OR IGNORE INTO profiles (code, name, category, active)
             VALUES ('ANTYRAMA_PLEXA', 'Antyrama (pleksa)', 'antyrama', 0);
+        INSERT OR IGNORE INTO profiles (code, name, category, active)
+            VALUES ('ANTYRAMA_GLASS_AR', 'Antyrama (szkło antyrefleks)', 'antyrama', 0);
+        INSERT OR IGNORE INTO profiles (code, name, category, active)
+            VALUES ('ANTYRAMA_PLEXA_AR', 'Antyrama (plexi antyrefleks)', 'antyrama', 0);
         """)
         # Migracje: dodaj kolumny jeśli nie istnieją
         for migration in [
