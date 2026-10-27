@@ -18,7 +18,6 @@
 [data-theme="dark"]{--bg:#0f172a;--bg2:#1e293b;--bg3:#0f172a;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.18);--text:#f1f5f9;--text2:#94a3b8;--text3:#475569;--accent:#3b82f6;--accent-bg:rgba(59,130,246,.12);--accent-border:rgba(59,130,246,.3);--tile-ab:rgba(59,130,246,.15);--tile-ac:#3b82f6;--success:#22c55e;--success-bg:rgba(34,197,94,.1);--nav-bg:rgba(15,23,42,.96);--badge:#1e293b;--badge-t:#94a3b8;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);transition:background .2s,color .2s;min-height:100vh;}
-@media print{.no-print{display:none!important;}body{background:#fff!important;}}
 
 .nav{background:var(--nav-bg);border-bottom:.5px solid var(--border);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);}
 .nav-logo{display:flex;align-items:center;gap:10px;}
@@ -130,6 +129,28 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
   .formats-grid{grid-template-columns:repeat(2,1fr);}
   .footer-grid{grid-template-columns:1fr;}
 }
+
+/* ── wydruk wyceny — na końcu arkusza, żeby nadpisać reguły ekranowe ── */
+.print-only{display:none;}
+.print-brand{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#0f172a;}
+.print-title{font-size:20px;font-weight:800;color:#0f172a;margin-top:2px;}
+.print-product{font-size:14px;font-weight:800;text-transform:uppercase;color:#0f172a;margin-top:6px;}
+.print-meta{font-size:11px;color:#475569;line-height:1.6;text-align:right;}
+@media print{
+  /* zawsze jasne kolory, niezależnie od motywu (ciemny dawał jasny tekst na białej kartce) */
+  :root,[data-theme="dark"]{--bg:#fff;--bg2:#fff;--bg3:#fff;--text:#0f172a;--text2:#475569;--text3:#64748b;--accent:#1d4ed8;--border:rgba(0,0,0,.25);--border2:rgba(0,0,0,.35);}
+  @page{size:A4;margin:12mm;}
+  .no-print,.nav,.form-card,.install-modal,.lightbox,.footer,button{display:none!important;}
+  .print-only{display:block;}
+  body{background:#fff!important;color:#0f172a!important;min-height:0;}
+  .main{max-width:none;padding:0;}
+  .results-layout{display:block;}
+  .formats-grid{grid-template-columns:repeat(3,1fr);}
+  .format-card{break-inside:avoid;border:1px solid #cbd5e1;padding:9px 11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .format-card:hover{transform:none;}
+  .format-gross{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .print-header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px;}
+}
 </style>
 </head>
 <body>
@@ -238,6 +259,18 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
     </div>
 
     {% if results %}
+    <div class="print-only print-header">
+      <div>
+        <div class="print-brand">Antyramy.eu · 500 601 601 · biuro@antyramy.eu</div>
+        <div class="print-title">Wycena</div>
+        <div class="print-product">{{ profile.code }} — {{ profile.name }}</div>
+      </div>
+      <div class="print-meta">
+        {% if front_type and front_types[front_type] %}<div>Wypełnienie: <b>{{ front_types[front_type].label }}</b>{% if with_pp %} + passe-partout{% endif %}</div>{% endif %}
+        <div>Ceny hurtowe, VAT {{ vat }}%</div>
+        <div>Data: <span id="printDate"></span></div>
+      </div>
+    </div>
     <div class="results-layout">
       <div>
         <div class="results-header no-print">
@@ -373,6 +406,14 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
 <script>
 const PROFILE_ID = {{ profile.id if profile else 'null' }};
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+
+// data w nagłówku wydruku — ustawiana też tuż przed drukiem, gdyby strona była otwarta od wczoraj
+function setPrintDate(){
+  const el = document.getElementById('printDate');
+  if (el) el.textContent = new Date().toLocaleDateString('pl-PL');
+}
+setPrintDate();
+window.addEventListener('beforeprint', setPrintDate);
 
 function applyTheme(t){
   const dark = t==='system' ? window.matchMedia('(prefers-color-scheme:dark)').matches : t==='dark';
