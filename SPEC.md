@@ -21,7 +21,8 @@ i marż, oraz przeniesienie wyliczonych cen do sklepu B2B (b2b.antyramy.eu) jedn
 - [x] Synchronizacja cen do WooCommerce: powiązanie profilu z wieloma produktami (variable – warianty format×materiał, simple – jedna cena).
 - [x] Backup ZIP z panelu (dump SQL, CSV profili/ustawień/marż, zdjęcia, notatka) + historia backupów.
 - [x] Upload zdjęć profili (jpg/png/webp/gif, max 1 MB).
-- [x] Wydruk wyceny: 1 strona A4, zawsze jasne kolory, nagłówek (profil, wypełnienie/PP, VAT, data), bez marż i pracy.
+- [x] Wydruk wyceny: 1 strona A4, zawsze jasne kolory, nagłówek (profil, wypełnienie/PP, VAT, data), bez marż i pracy;
+      nazwa pliku PDF wg wyceny: `antyrama_<wypełnienie>` albo `<kategoria>_<kod profilu>`.
 - [x] PWA (manifest, service worker), jasny/ciemny motyw.
 
 ### Później
