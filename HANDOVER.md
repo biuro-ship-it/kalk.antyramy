@@ -5,7 +5,7 @@
 
 ## Stan obecny
 ### ✅ Działa
-- Kalkulator 17 formatów, 5 wypełnień, 4 kategorie, passe-partout.
+- Kalkulator 17 formatów, 5 wypełnień, 4 kategorie, passe-partout; antyramy wg nowej formuły (4 marże per wypełnienie).
 - Panel admina: ustawienia, profile, marże per format, backup ZIP, zmiana hasła, upload zdjęć.
 - Synchronizacja cen do WooCommerce (b2b.antyramy.eu), produkty variable i simple.
 - PWA.
@@ -18,10 +18,12 @@
 - Brak `README.md`, `.env.example`, `deploy.ps1`, `wypchnij.ps1` ze schematu.
 
 ## Następne kroki (kolejność = priorytet)
-1. Po wdrożeniu sprawdzić wydruk wyceny na produkcji z prawdziwą listwą (drewno/alu) – lokalna baza nie ma aktywnych profili.
-2. Migracja: potwierdzić FIRMOWA → `apps\FIRMOWE\KALK_ANTYRAMY`, origin `D:\Repozytoria\git\kalk_antyramy.git`, obecny GitHub jako remote `github`.
-3. `deploy.ps1` z `D:\Repozytoria\szablon-startowy` (te same wykluczenia co w `deploy.yml`) i decyzja o wyłączeniu GitHub Actions.
-4. Uzupełnić `README.md` i `.env.example`.
+1. Po wdrożeniu nowej formuły antyram: w panelu ustawić 4 „Marże antyram (%)”, sprawdzić ceny, potem ręcznie „Synchronizuj” profile antyram do WooCommerce.
+2. Po wdrożeniu sprawdzić wydruk wyceny na produkcji z prawdziwą listwą (drewno/alu) – lokalna baza nie ma aktywnych profili.
+3. Migracja: potwierdzić FIRMOWA → `apps\FIRMOWE\KALK_ANTYRAMY`, origin `D:\Repozytoria\git\kalk_antyramy.git`, obecny GitHub jako remote `github`.
+4. `deploy.ps1` z `D:\Repozytoria\szablon-startowy` (te same wykluczenia co w `deploy.yml`) i decyzja o wyłączeniu GitHub Actions.
+5. Uzupełnić `README.md` i `.env.example`.
+6. Do decyzji: pole „Marża spinki/zaczepy” w panelu działało tylko na antyramy – teraz nieużywane (usunąć albo zostawić).
 
 ## Ważne do zapamiętania
 - Deploy NIE może nadpisać `data/` ani `public/static/images/` na serwerze – tam jest produkcyjny cennik i zdjęcia.
@@ -30,7 +32,7 @@
 - Konta: mydevil s61 użytkownik `Pluszek`, domena kalk.antyramy.eu; GitHub `biuro-ship-it/kalk.antyramy`. Hasła w `secret/` – bez haseł tutaj.
 
 ## Historia sesji
-- **2026-10-27** – Założono pliki schematu (CLAUDE.md, SPEC.md, DECISIONS.md, HANDOVER.md); naprawiono wydruk wyceny (puste strony w ciemnym motywie, nagłówek wydruku); `data/` w `.gitignore`.
+- **2026-10-27** – Założono pliki schematu (CLAUDE.md, SPEC.md, DECISIONS.md, HANDOVER.md); naprawiono wydruk wyceny (puste strony w ciemnym motywie, nagłówek wydruku); `data/` w `.gitignore`; nowa formuła antyram (4 marże per wypełnienie).
 - **2026-07-30** – Porządki: `secret/` w `.gitignore`, testy przeniesione do `temp/`.
 - **2026 (lato)** – Wypełnienia antyrefleks (szkło, plexi), format A3 29.7x42, sync WC dla produktów simple.
 - **2026 (lato)** – Synchronizacja cen z WooCommerce b2b.antyramy.eu.

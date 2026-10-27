@@ -13,8 +13,10 @@ i marż, oraz przeniesienie wyliczonych cen do sklepu B2B (b2b.antyramy.eu) jedn
 - [x] Wycena dla 17 formatów (10x15 … 70x100, w tym 21x29.7 i 29.7x42 = A4/A3) – tabela wyników po wyborze profilu.
 - [x] Kategorie: drewno, plastik, alu (z zestawem alu), antyrama (klipsy + wieszaki zamiast listwy).
 - [x] Wypełnienia: szkło, szkło antyrefleks, pleksa, plexi antyrefleks, sama rama; opcjonalne passe-partout.
-- [x] Wzór: listwa = 2·(szer+wys) + 8 cm odpadu na narożniki; materiały × marża per element; robocizna wg wielkości (bez marży); VAT.
-- [x] Marże per format (wyjątki marży i robocizny) zapisywane z widoku wyceny przez admina.
+- [x] Wzór (drewno/plastik/alu): listwa = 2·(szer+wys) + 8 cm odpadu na narożniki; materiały × marża per element; robocizna wg wielkości (bez marży); VAT.
+- [x] Wzór antyram: koszt = pole·(wypełnienie + tył) + spinki + zaczepy (ilości wg formatu); netto = koszt / (1 − marża wypełnienia); bez PP i robocizny.
+      4 marże antyram w ustawieniach: szkło, szkło AR, pleksa, plexi AR (domyślnie 50%).
+- [x] Marże per format (wyjątki marży i robocizny) zapisywane z widoku wyceny przez admina – nie dotyczy antyram.
 - [x] Panel admina: ustawienia globalne (ceny zakupu, marże, robocizna, VAT), profile listew (dodaj/edytuj/usuń, zdjęcie, link do sklepu), zmiana hasła.
 - [x] Synchronizacja cen do WooCommerce: powiązanie profilu z wieloma produktami (variable – warianty format×materiał, simple – jedna cena).
 - [x] Backup ZIP z panelu (dump SQL, CSV profili/ustawień/marż, zdjęcia, notatka) + historia backupów.
@@ -34,7 +36,7 @@ i marż, oraz przeniesienie wyliczonych cen do sklepu B2B (b2b.antyramy.eu) jedn
 |---|---|---|
 | Kalkulator `/` | Wybór kategorii, profilu, wypełnienia, PP; tabela cen dla formatów | Oblicz; admin: edycja marży/robocizny per format, sync WC |
 | Logowanie `/admin/login` | Pole hasła | Zaloguj |
-| Panel `/admin` | Backup, ustawienia globalne, profile listew, zmiana hasła | Zapis ustawień, CRUD profili, backup, wylogowanie |
+| Panel `/admin` | Backup, ustawienia globalne (ceny, marże per element, marże antyram, robocizna, WooCommerce), profile listew, zmiana hasła | Zapis ustawień, CRUD profili, backup, wylogowanie |
 
 ## Przepływy
 1. **Wycena:** kategoria → profil (lub antyrama) → wypełnienie (+PP) → Oblicz → tabela netto/brutto.

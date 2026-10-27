@@ -292,7 +292,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
               <span class="format-net-val">{{ "%.2f"|format(r.net) }} zł</span>
               <span class="format-net-lbl">netto</span>
             </div>
-            {% if is_admin %}
+            {% if is_admin and category != 'antyrama' %}
             <div style="margin-top:6px;display:flex;gap:4px;" class="no-print">
               <input class="admin-input" type="number" step="0.1" value="{{ r.margin }}"
                 data-fmt="{{ r.format }}" data-type="margin" title="Marża %">

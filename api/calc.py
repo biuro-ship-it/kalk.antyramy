@@ -2,6 +2,7 @@
 Logika obliczania cen ramek.
 Każdy element materiałowy ma własną marżę ustawianą globalnie.
 Marża listwy pochodzi z profilu (margin_hurt).
+Antyramy mają osobną, prostą formułę: jedna marża na wypełnienie (margin_ant_*).
 """
 from typing import Optional
 
@@ -28,24 +29,26 @@ FORMATS_CONFIG: dict = {
 LABOR_KEY = {"small": "labor_small", "medium": "labor_medium", "large": "labor_large"}
 
 # Jedno źródło prawdy o rodzajach wypełnienia: klucze cen zakupu i marż w settings,
-# etykieta dla formularza oraz kod wirtualnego profilu antyramy (niezależne marże per format).
+# etykieta dla formularza, kod wirtualnego profilu antyramy oraz marża antyramy (ant_margin_key).
 FRONT_TYPES: dict = {
     "szklo":     {"label": "Szkło",             "price_key": "glass_price_m2",
                   "margin_key": "margin_glass",     "margin_default": 30,
-                  "antyrama_code": "ANTYRAMA_GLASS"},
+                  "antyrama_code": "ANTYRAMA_GLASS",    "ant_margin_key": "margin_ant_szklo"},
     "szklo_ar":  {"label": "Szkło antyrefleks", "price_key": "glass_ar_price_m2",
                   "margin_key": "margin_glass_ar",  "margin_default": 30,
-                  "antyrama_code": "ANTYRAMA_GLASS_AR"},
+                  "antyrama_code": "ANTYRAMA_GLASS_AR", "ant_margin_key": "margin_ant_szklo_ar"},
     "pleksa":    {"label": "Pleksa",            "price_key": "plexsa_price_m2",
                   "margin_key": "margin_plexsa",    "margin_default": 45,
-                  "antyrama_code": "ANTYRAMA_PLEXA"},
+                  "antyrama_code": "ANTYRAMA_PLEXA",    "ant_margin_key": "margin_ant_pleksa"},
     "pleksa_ar": {"label": "Plexi antyrefleks", "price_key": "plexsa_ar_price_m2",
                   "margin_key": "margin_plexsa_ar", "margin_default": 45,
-                  "antyrama_code": "ANTYRAMA_PLEXA_AR"},
+                  "antyrama_code": "ANTYRAMA_PLEXA_AR", "ant_margin_key": "margin_ant_pleksa_ar"},
     "sama_rama": {"label": "Sama rama",         "price_key": None,
                   "margin_key": None,               "margin_default": 0,
-                  "antyrama_code": "ANTYRAMA_GLASS"},
+                  "antyrama_code": "ANTYRAMA_GLASS",    "ant_margin_key": None},
 }
+
+ANT_MARGIN_DEFAULT = 50
 
 DEFAULT_FRONT = "szklo"
 
@@ -111,6 +114,27 @@ def calculate_price(
     pp_cost     = _num(settings, "pp_price_m2", 0)
     mb_cost     = float(profile.get("price_mb", 0) or 0)
     vat         = _num(settings, "vat", 23)
+
+    # ── antyrama z wypełnieniem: prosta formuła, jedna marża na wypełnienie ──
+    # koszt = pole·(wypełnienie + tył) + spinki + zaczepy; bez PP, bez robocizny.
+    # Marże per format (margin_override, labor_override) i margin_hurt nie działają.
+    if is_antyrama and not is_sama_rama:
+        material_cost = (area_m2 * (front_cost + back_cost)
+                         + clip_count * clip_cost + hook_count * hook_cost)
+        margin = _num(settings, front["ant_margin_key"], ANT_MARGIN_DEFAULT)
+        net = _apply_margin(material_cost, margin)
+        gross = net * (1 + vat / 100)
+        effective_margin = (1 - material_cost / net) * 100 if net > 0 else 0.0
+        return {
+            "format":   format_name,
+            "net":      round(net, 2),
+            "gross":    round(gross, 2),
+            "material": round(material_cost, 2),
+            "labor":    0.0,
+            "profit":   round(net - material_cost, 2),
+            "margin":   round(effective_margin, 1),
+            "vat":      vat,
+        }
 
     # ── marże per element ────────────────────────────────────────────
     margin_front  = (_num(settings, front["margin_key"], front["margin_default"])

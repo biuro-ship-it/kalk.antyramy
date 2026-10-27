@@ -135,6 +135,21 @@ textarea{resize:vertical;min-height:80px;}
       {% endfor %}
     </div>
 
+    <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f59e0b;margin-bottom:4px">Marże antyram (%)</p>
+    <p style="font-size:10px;color:#64748b;margin-bottom:10px">Jedna marża na wypełnienie, liczona od całego kosztu: wypełnienie + tył + spinki + zaczepy. Marże per format nie działają na antyramy.</p>
+    <div class="settings-grid" style="margin-bottom:20px">
+      {% set marze_ant = {
+        'margin_ant_szklo':'Szkło', 'margin_ant_szklo_ar':'Szkło antyrefleks',
+        'margin_ant_pleksa':'Pleksa', 'margin_ant_pleksa_ar':'Plexi antyrefleks'
+      } %}
+      {% for key, lbl in marze_ant.items() %}
+      <div class="s-item">
+        <div class="field-lbl">{{ lbl }} (%)</div>
+        <input type="number" step="0.1" min="0" max="99" data-key="{{ key }}" value="{{ settings.get(key,'50') }}" class="s-input">
+      </div>
+      {% endfor %}
+    </div>
+
     <p style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#16a34a;margin-bottom:10px">Robocizna (zł) — bez marży</p>
     <div class="settings-grid" style="margin-bottom:20px">
       {% set praca = {

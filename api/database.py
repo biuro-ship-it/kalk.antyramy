@@ -79,6 +79,11 @@ def init_db() -> None:
         INSERT OR IGNORE INTO settings VALUES ('margin_pp', '30');
         INSERT OR IGNORE INTO settings VALUES ('margin_alu_kit', '20');
         INSERT OR IGNORE INTO settings VALUES ('margin_clips', '20');
+        -- marże antyram: jedna na wypełnienie (formuła antyram w calc.py)
+        INSERT OR IGNORE INTO settings VALUES ('margin_ant_szklo', '50');
+        INSERT OR IGNORE INTO settings VALUES ('margin_ant_szklo_ar', '50');
+        INSERT OR IGNORE INTO settings VALUES ('margin_ant_pleksa', '50');
+        INSERT OR IGNORE INTO settings VALUES ('margin_ant_pleksa_ar', '50');
         INSERT OR IGNORE INTO settings VALUES ('admin_password_hash', '');
 
         -- Wirtualne profile antyramy: dają realne, niezerowe id wymagane przez

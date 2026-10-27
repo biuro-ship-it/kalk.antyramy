@@ -2,6 +2,15 @@
 
 <!-- Nowe wpisy dodawaj NA GÓRZE. Wpisy #001–#006 odtworzone 2026-10-27 z historii gita (daty przybliżone). -->
 
+## #008 – 2026-10-27 – Nowa formuła antyram: 4 marże per wypełnienie
+- **Status:** obowiązuje (zastępuje w części #004 dla antyram)
+- **Decyzja:** Antyrama z wypełnieniem: koszt = pole·(wypełnienie + tył) + spinki + zaczepy (ilości z `FORMATS_CONFIG`),
+  jedna marża na wypełnienie (`margin_ant_szklo`, `_szklo_ar`, `_pleksa`, `_pleksa_ar`, domyślnie 50%), bez PP i robocizny.
+  Marże per format (`format_margins`), `margin_hurt`/`margin_antyrama` i `margin_clips` nie wpływają na antyramy; API nie zapisuje marż per format dla antyram.
+  „Sama rama” bez zmian. Sklep liczy się tą samą funkcją (`wc_sync` → `calculate_price`).
+- **Dlaczego:** Prostsza, przewidywalna wycena; wcześniej sync do sklepu brał marżę z wirtualnego profilu (40%), a strona z `margin_antyrama` (35%) – ceny mogły się rozjeżdżać.
+- **Konsekwencje:** Stare wiersze `format_margins` dla antyram zostają w bazie, ale są ignorowane. Po wdrożeniu trzeba ustawić 4 marże i ręcznie zsynchronizować sklep.
+
 ## #007 – 2026-10-27 – Pliki schematu projektu
 - **Status:** obowiązuje
 - **Decyzja:** Aplikacja dostaje `CLAUDE.md`, `SPEC.md`, `DECISIONS.md`, `HANDOVER.md` wg `C:\Claude\szablony`.

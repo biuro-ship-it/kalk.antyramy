@@ -122,6 +122,7 @@ async def calculate(
         with get_conn() as conn:
             row = conn.execute("SELECT * FROM profiles WHERE code=?", (antyrama_code,)).fetchone()
         profile = dict(row)
+        # (margin_hurt działa już tylko przy „sama rama" — z wypełnieniem liczą się margin_ant_*)
         profile["margin_hurt"] = _num(s, "margin_antyrama", 35)
         profile["code"] = "ANTYRAMA"  # czytelny nagłówek karty zamiast ANTYRAMA_GLASS/PLEXA
     else:
@@ -163,7 +164,12 @@ async def save_margins(request: Request):
         return JSONResponse({"ok": False, "error": "Brak autoryzacji"}, status_code=403)
     data = await request.json()
     with get_conn() as conn:
+        # antyramy liczą się z 4 marż per wypełnienie — marż per format dla nich nie zapisujemy
+        antyrama_ids = {r["id"] for r in conn.execute(
+            "SELECT id FROM profiles WHERE category='antyrama'").fetchall()}
         for u in data.get("updates", []):
+            if int(u["profile_id"]) in antyrama_ids:
+                continue
             conn.execute("""
                 INSERT INTO format_margins (mode, profile_id, format, margin, labor)
                 VALUES (?, ?, ?, ?, ?)
