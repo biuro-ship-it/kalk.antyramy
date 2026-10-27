@@ -14,10 +14,8 @@ temp/
 secret/
 
 
-# baza danych i archiwa — nie wchodzą do repo
-data/cennik.db
-data/*.zip
-data/*.sqlite
+# baza danych (z plikami -shm/-wal) i archiwa — nie wchodzą do repo
+data/
 
 # system
 .DS_Store
