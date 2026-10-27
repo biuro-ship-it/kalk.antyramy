@@ -278,7 +278,7 @@ body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);tra
             <div class="results-eyebrow">Karta produktu (Hurt)</div>
             <div class="results-title">{{ profile.code }} — {{ profile.name }}</div>
           </div>
-          <button type="button" onclick="window.print()" class="print-btn">🖨️ Drukuj</button>
+          <button type="button" onclick="setPrintTitle();window.print()" class="print-btn">🖨️ Drukuj</button>
         </div>
 
         <div class="formats-grid">
@@ -414,6 +414,13 @@ function setPrintDate(){
 }
 setPrintDate();
 window.addEventListener('beforeprint', setPrintDate);
+
+// nazwa pliku PDF = tytuł strony w chwili druku (przycisk i Ctrl+P); po druku wraca oryginał
+const PRINT_NAME = {{ (print_name or '')|tojson }};
+const ORIGINAL_TITLE = document.title;
+function setPrintTitle(){ if (PRINT_NAME) document.title = PRINT_NAME; }
+window.addEventListener('beforeprint', setPrintTitle);
+window.addEventListener('afterprint', () => { document.title = ORIGINAL_TITLE; });
 
 function applyTheme(t){
   const dark = t==='system' ? window.matchMedia('(prefers-color-scheme:dark)').matches : t==='dark';

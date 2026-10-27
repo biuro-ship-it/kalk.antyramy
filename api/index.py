@@ -5,6 +5,8 @@ Uruchamiana przez Phusion Passenger (passenger_wsgi.py) na mydevil.net
 from pathlib import Path
 from typing import Optional
 
+import re
+import unicodedata
 import uuid
 
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile
@@ -77,6 +79,29 @@ def _margin_exceptions(profile_id: int) -> dict:
 def _is_admin(request: Request) -> bool:
     token = request.cookies.get("kalk_admin", "")
     return verify_cookie(token) if token else False
+
+
+# nazwa pliku PDF przy wydruku wyceny (document.title) — jedno miejsce slugowania
+ANTYRAMA_PRINT_NAMES = {
+    "szklo":     "antyrama_szklo",
+    "szklo_ar":  "antyrama_szklo_antyreflex",
+    "pleksa":    "antyrama_pleksa",
+    "pleksa_ar": "antyrama_pleksa_antyreflex",
+    "sama_rama": "antyrama_sama_rama",
+}
+
+
+def slugify(text: str) -> str:
+    """Małe litery, bez polskich znaków, wszystko poza [a-z0-9] → '_'."""
+    text = str(text).lower().replace("ł", "l")  # ł nie rozkłada się w NFKD
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", text).strip("_")
+
+
+def print_name(category: str, front_type: str, profile: dict) -> str:
+    if category == "antyrama":
+        return ANTYRAMA_PRINT_NAMES.get(front_type, ANTYRAMA_PRINT_NAMES[DEFAULT_FRONT])
+    return slugify(f"{category}_{profile.get('code', '')}")
 
 
 # ── strona główna ─────────────────────────────────────────────────────────────
@@ -153,6 +178,7 @@ async def calculate(
         "mode": mode,
         "is_admin": is_admin,
         "vat": s.get("vat", 23),
+        "print_name": print_name(category, front_type, profile),
     })
 
 
